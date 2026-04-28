@@ -1,0 +1,19 @@
+{
+  "css/style.css": 1777382738298,
+  "manifest.json": 1777381585997,
+  "controller/App.controller.js": 1777382717442,
+  "Component.js": 1777382728238,
+  "Component-dbg.js": 1777382728238,
+  "Component.js.map": 1777382921470,
+  "controller/App-dbg.controller.js": 1777382717442,
+  "controller/App.controller.js.map": 1777382921518,
+  "Component-preload.js": 1777382921613,
+  "Component-preload.js.map": 1777382921613,
+  "view/UserPopover.fragment.xml": 1777374926747,
+  "view/ManageAppsDialog.fragment.xml": 1777374944571,
+  "view/IconPickerDialog.fragment.xml": 1777371475875,
+  "view/AppFormDialog.fragment.xml": 1777371463395,
+  "view/App.view.xml": 1777381579385,
+  "i18n/i18n.properties": 1777374875151,
+  "index.html": 1777375979904
+}

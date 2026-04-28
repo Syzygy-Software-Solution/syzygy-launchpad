@@ -1,0 +1,11 @@
+{
+  "xsappname": "syzygy-launchpad",
+  "tenant-mode": "dedicated",
+  "description": "Security profile for Syzygy Launchpad",
+  "scopes": [],
+  "role-templates": [],
+  "role-collections": [],
+  "oauth2-configuration": {
+    "redirect-uris": ["https://*.hana.ondemand.com/**"]
+  }
+}

@@ -1,0 +1,40 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <ResponsivePopover
+    id="userPopover"
+    placement="Bottom"
+    showHeader="false"
+    contentWidth="320px"
+    class="szUserPopover">
+
+    <VBox alignItems="Center" class="sapUiMediumMargin">
+      <Avatar
+        initials="{ui>/user/initials}"
+        backgroundColor="Accent6"
+        displaySize="L"
+        class="sapUiSmallMarginBottom"/>
+      <Title text="{ui>/user/name}" level="H4"/>
+      <ObjectStatus
+        text="{ui>/user/role}"
+        state="Information"
+        class="sapUiTinyMarginTop"/>
+    </VBox>
+
+    <List class="szUserMenu">
+      <CustomListItem type="Active" press=".onUserMenuManageApps">
+        <HBox alignItems="Center" class="sapUiSmallMargin">
+          <core:Icon src="sap-icon://action-settings" class="sapUiSmallMarginEnd"/>
+          <Text text="Manage Apps"/>
+        </HBox>
+      </CustomListItem>
+      <CustomListItem type="Active" press=".onUserMenuSettings">
+        <HBox alignItems="Center" class="sapUiSmallMargin">
+          <core:Icon src="sap-icon://settings" class="sapUiSmallMarginEnd"/>
+          <Text text="Settings"/>
+        </HBox>
+      </CustomListItem>
+    </List>
+  </ResponsivePopover>
+</core:FragmentDefinition>

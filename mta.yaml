@@ -1,0 +1,120 @@
+_schema-version: "3.3.0"
+ID: syzygy-launchpad
+description: Syzygy Custom Launchpad
+version: 1.0.0
+
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+
+modules:
+
+  # ---------- CAP service ----------
+  - name: syzygy-launchpad-srv
+    type: nodejs
+    path: gen/srv
+    requires:
+      - name: syzygy-launchpad-auth
+      - name: syzygy-launchpad-db
+      - name: syzygy-launchpad-html5-host
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    parameters:
+      buildpack: nodejs_buildpack
+      instances: 1
+    build-parameters:
+      builder: npm-ci
+
+  # ---------- HANA HDI deployer ----------
+  - name: syzygy-launchpad-db-deployer
+    type: hdb
+    path: gen/db
+    requires:
+      - name: syzygy-launchpad-db
+    parameters:
+      buildpack: nodejs_buildpack
+
+  # ---------- Approuter ----------
+  - name: syzygy-launchpad-approuter
+    type: approuter.nodejs
+    path: app/router
+    requires:
+      - name: syzygy-launchpad-auth
+      - name: syzygy-launchpad-html5-runtime
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api
+          url: ~{srv-url}
+          forwardAuthToken: true
+    parameters:
+      disk-quota: 512M
+      memory: 512M
+      keep-existing-routes: true
+
+  # ---------- HTML5 app content deploy ----------
+  - name: syzygy-launchpad-app-content
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: syzygy-launchpad-html5-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - artifacts:
+            - syzygylaunchpad.zip
+          name: syzygylaunchpad
+          target-path: resources/
+
+  - name: syzygylaunchpad
+    type: html5
+    path: app/launchpad
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm install
+        - npm run build:cf
+      supported-platforms: []
+
+resources:
+
+  - name: syzygy-launchpad-auth
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+      config:
+        tenant-mode: dedicated
+        xsappname: syzygy-launchpad-${org}-${space}
+
+  - name: syzygy-launchpad-db
+    type: com.sap.xs.hdi-container
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+
+  - name: syzygy-launchpad-html5-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-name: syzygy-launchpad-html5-host
+      service-plan: app-host
+
+  - name: syzygy-launchpad-html5-runtime
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-runtime

@@ -1,0 +1,292 @@
+<mvc:View
+  controllerName="syzygylaunchpad.controller.App"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:tnt="sap.tnt"
+  xmlns:core="sap.ui.core"
+  xmlns:l="sap.ui.layout"
+  xmlns:f="sap.f"
+  xmlns:card="sap.f.cards"
+  displayBlock="true"
+  height="100%">
+
+  <tnt:ToolPage id="toolPage" sideExpanded="{ui>/sideExpanded}">
+
+    <tnt:header>
+      <tnt:ToolHeader>
+        <Button
+          icon="sap-icon://menu2"
+          type="Transparent"
+          press=".onSideToggle"
+          tooltip="Toggle navigation"/>
+        <Title text="{i18n>shellTitle}" level="H1" class="sapUiTinyMarginBegin"/>
+
+        <ToolbarSpacer/>
+
+        <Button
+          icon="sap-icon://ai"
+          type="Transparent"
+          tooltip="AI Assistant"
+          press=".onOpenAiBot"/>
+
+        <Button
+          icon="sap-icon://bell"
+          type="Transparent"
+          tooltip="Notifications"
+          press=".onOpenNotifications"/>
+
+        <SegmentedButton
+          selectedKey="{ui>/theme}"
+          selectionChange=".onThemeChange"
+          class="szThemeSwitch sapUiTinyMarginBegin sapUiTinyMarginEnd">
+          <items>
+            <SegmentedButtonItem key="sap_horizon"      icon="sap-icon://light-mode" tooltip="Light theme"/>
+            <SegmentedButtonItem key="sap_horizon_dark" icon="sap-icon://dark-mode"  tooltip="Dark theme"/>
+          </items>
+        </SegmentedButton>
+
+        <ToolbarSeparator/>
+
+        <HBox alignItems="Center" class="szUserBlock sapUiTinyMarginBegin sapUiTinyMarginEnd">
+          <VBox alignItems="End" class="sapUiTinyMarginEnd szUserText">
+            <Text text="{= 'Hello, ' + ${ui>/user/name} }" class="szUserName"/>
+            <Text text="{ui>/user/role}" class="szUserRole"/>
+          </VBox>
+          <Avatar
+            initials="{ui>/user/initials}"
+            backgroundColor="Accent6"
+            displaySize="S"
+            press=".onUserPress"
+            ariaHasPopup="Menu"/>
+        </HBox>
+      </tnt:ToolHeader>
+    </tnt:header>
+
+    <tnt:sideContent>
+      <tnt:SideNavigation
+        id="sideNav"
+        expanded="{ui>/sideExpanded}"
+        selectedKey="{ui>/selectedNavKey}"
+        itemSelect=".onNavItemSelect">
+
+        <tnt:NavigationList id="mainNavList">
+          <tnt:NavigationListItem
+            key="home"
+            text="{i18n>home}"
+            icon="sap-icon://home"
+            select=".onSelectHome"/>
+
+          <tnt:NavigationListGroup
+            text="Your Apps"
+            expanded="true"
+            items="{
+              path: '/ConfiguredApps',
+              sorter: { path: 'sortOrder' },
+              parameters: {
+                '$filter': 'enabled eq true',
+                '$select': 'appId,displayName,runtimeUrl,appVersion,iconUri,appType,sortOrder'
+              }
+            }">
+            <tnt:NavigationListItem
+              key="{appId}"
+              text="{displayName}"
+              icon="{= ${iconUri} || 'sap-icon://grid' }"
+              select=".onSelectApp"/>
+          </tnt:NavigationListGroup>
+        </tnt:NavigationList>
+      </tnt:SideNavigation>
+    </tnt:sideContent>
+
+    <tnt:mainContents>
+      <NavContainer id="mainNav" defaultTransitionName="show">
+
+        <Page id="homePage" showHeader="false" class="szHomePage">
+          <VBox class="szHomeContent sapUiMediumMargin">
+
+            <!-- greeting -->
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
+              <VBox>
+                <Title text="{= 'Good day, ' + ${ui>/user/name} }" level="H2"/>
+                <Text text="Here's what's happening across your sales platform today." class="szHomeSubtitle"/>
+              </VBox>
+              <Button
+                text="{i18n>homeManageCta}"
+                icon="sap-icon://add"
+                type="Emphasized"
+                press=".onOpenManageDialog"/>
+            </HBox>
+
+            <!-- KPI tiles row -->
+            <l:Grid defaultSpan="L3 M6 S12" hSpacing="1" vSpacing="1" class="sapUiSmallMarginBottom">
+              <f:Card class="szKpiCard">
+                <f:header>
+                  <card:Header
+                    title="Total Commissions"
+                    subtitle="MTD"
+                    iconSrc="sap-icon://money-bills"
+                    statusText="+12.4%"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="$2.84M" level="H1" class="szKpiValue"/>
+                    <Text text="vs $2.53M last month" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard">
+                <f:header>
+                  <card:Header
+                    title="Active Partners"
+                    subtitle="This quarter"
+                    iconSrc="sap-icon://customer"
+                    statusText="+5"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="148" level="H1" class="szKpiValue"/>
+                    <Text text="of 162 onboarded" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard">
+                <f:header>
+                  <card:Header
+                    title="Quota Attainment"
+                    subtitle="FY tracking"
+                    iconSrc="sap-icon://target-group"
+                    statusText="On track"
+                    statusVisible="true"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="78%" level="H1" class="szKpiValue"/>
+                    <ProgressIndicator percentValue="78" displayValue="78% of $42M target" state="Success" class="sapUiSmallMarginTop"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard">
+                <f:header>
+                  <card:Header
+                    title="Open Disputes"
+                    subtitle="Awaiting review"
+                    iconSrc="sap-icon://alert"
+                    statusText="3 urgent"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="11" level="H1" class="szKpiValue"/>
+                    <Text text="Avg. resolution: 2.3 days" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+            </l:Grid>
+
+            <!-- content cards -->
+            <l:Grid defaultSpan="L6 M12 S12" hSpacing="1" vSpacing="1">
+
+              <!-- Partner commissions card -->
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header
+                    title="Partner Commissions"
+                    subtitle="Top earners — last 30 days"
+                    iconSrc="sap-icon://group"/>
+                </f:header>
+                <f:content>
+                  <List showSeparators="Inner" class="szPlainList">
+                    <StandardListItem title="Acme Corp"            description="North America"  info="$184,200" infoState="Success"/>
+                    <StandardListItem title="Globex Solutions"     description="EMEA"           info="$142,800" infoState="Success"/>
+                    <StandardListItem title="Initech Holdings"     description="APAC"           info="$118,540" infoState="Success"/>
+                    <StandardListItem title="Umbrella Industries"  description="LATAM"          info="$96,100"  infoState="None"/>
+                    <StandardListItem title="Stark Resellers"      description="North America"  info="$84,330"  infoState="None"/>
+                  </List>
+                </f:content>
+              </f:Card>
+
+              <!-- Territory & Quota card -->
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header
+                    title="Territory &amp; Quota"
+                    subtitle="Coverage by region"
+                    iconSrc="sap-icon://map-2"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <VBox class="sapUiTinyMarginBottom">
+                      <HBox justifyContent="SpaceBetween"><Text text="North America"/><Text text="92%"/></HBox>
+                      <ProgressIndicator percentValue="92" state="Success"/>
+                    </VBox>
+                    <VBox class="sapUiTinyMarginBottom">
+                      <HBox justifyContent="SpaceBetween"><Text text="EMEA"/><Text text="76%"/></HBox>
+                      <ProgressIndicator percentValue="76" state="Success"/>
+                    </VBox>
+                    <VBox class="sapUiTinyMarginBottom">
+                      <HBox justifyContent="SpaceBetween"><Text text="APAC"/><Text text="64%"/></HBox>
+                      <ProgressIndicator percentValue="64" state="Warning"/>
+                    </VBox>
+                    <VBox class="sapUiTinyMarginBottom">
+                      <HBox justifyContent="SpaceBetween"><Text text="LATAM"/><Text text="48%"/></HBox>
+                      <ProgressIndicator percentValue="48" state="Error"/>
+                    </VBox>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <!-- Dashboards card -->
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header
+                    title="Dashboards"
+                    subtitle="Saved views you visit often"
+                    iconSrc="sap-icon://business-objects-experience"/>
+                </f:header>
+                <f:content>
+                  <List showSeparators="Inner" class="szPlainList">
+                    <StandardListItem title="Pipeline Health"        description="Updated 2h ago"  icon="sap-icon://line-chart"   type="Active"/>
+                    <StandardListItem title="Commission Forecast"    description="Updated 5h ago"  icon="sap-icon://bar-chart"    type="Active"/>
+                    <StandardListItem title="Rep Leaderboard"        description="Updated today"   icon="sap-icon://podcast"      type="Active"/>
+                    <StandardListItem title="Channel Performance"    description="Updated 1d ago"  icon="sap-icon://pie-chart"    type="Active"/>
+                  </List>
+                </f:content>
+              </f:Card>
+
+              <!-- Activity card -->
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header
+                    title="Recent Activity"
+                    subtitle="Across all apps"
+                    iconSrc="sap-icon://history"/>
+                </f:header>
+                <f:content>
+                  <List showSeparators="Inner" class="szPlainList">
+                    <StandardListItem title="Q2 commission run completed"            description="Partner Commissions • 1h ago"   icon="sap-icon://accept"   iconInset="false"/>
+                    <StandardListItem title="New territory plan published"           description="Territory &amp; Quota • 3h ago" icon="sap-icon://map-2"    iconInset="false"/>
+                    <StandardListItem title="3 disputes flagged for review"          description="Partner Commissions • 6h ago"   icon="sap-icon://alert"    iconInset="false"/>
+                    <StandardListItem title="FY26 quotas approved by leadership"     description="Territory &amp; Quota • 1d ago" icon="sap-icon://approvals" iconInset="false"/>
+                    <StandardListItem title="Pipeline Health dashboard refreshed"    description="Dashboards • 1d ago"            icon="sap-icon://refresh"  iconInset="false"/>
+                  </List>
+                </f:content>
+              </f:Card>
+
+            </l:Grid>
+          </VBox>
+        </Page>
+
+        <Page id="appPage" showHeader="false" enableScrolling="false" class="szAppPage">
+          <core:HTML id="appFrameHost" content="&lt;div class='szAppFrameHost'&gt;&lt;/div&gt;"/>
+          <BusyIndicator
+            id="frameBusy"
+            visible="{ui>/frameLoading}"
+            size="3rem"
+            class="szFrameBusy"/>
+        </Page>
+
+      </NavContainer>
+    </tnt:mainContents>
+  </tnt:ToolPage>
+</mvc:View>

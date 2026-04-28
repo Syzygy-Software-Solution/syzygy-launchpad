@@ -1,0 +1,78 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:l="sap.ui.layout">
+
+  <Dialog
+    id="appFormDialog"
+    title="{ui>/appForm/title}"
+    contentWidth="540px"
+    resizable="false"
+    draggable="false">
+
+    <content>
+      <VBox class="sapUiMediumMargin">
+
+        <Label text="App Type" required="true" class="sapUiTinyMarginBottom"/>
+        <SegmentedButton selectedKey="{ui>/appForm/appType}" class="sapUiSmallMarginBottom">
+          <items>
+            <SegmentedButtonItem key="btp" text="BTP Application" icon="sap-icon://cloud"/>
+            <SegmentedButtonItem key="url" text="External URL"    icon="sap-icon://internet-browser"/>
+          </items>
+        </SegmentedButton>
+
+        <Label text="App ID" required="true" class="sapUiTinyMarginBottom"/>
+        <Input
+          value="{ui>/appForm/appId}"
+          enabled="{= !${ui>/appForm/isEdit} }"
+          placeholder="e.g. partnercommissions"
+          class="sapUiSmallMarginBottom"/>
+
+        <Label text="Display Name" required="true" class="sapUiTinyMarginBottom"/>
+        <Input
+          value="{ui>/appForm/displayName}"
+          placeholder="e.g. Partner Commissions"
+          class="sapUiSmallMarginBottom"/>
+
+        <Label
+          text="{= ${ui>/appForm/appType} === 'btp' ? 'BTP Cockpit URL' : 'Web URL' }"
+          required="true"
+          class="sapUiTinyMarginBottom"/>
+        <Input
+          value="{ui>/appForm/runtimeUrl}"
+          placeholder="https://..."
+          class="sapUiSmallMarginBottom"/>
+        <Text
+          visible="{= ${ui>/appForm/appType} === 'btp' }"
+          text="Tip: copy this from BTP Cockpit → HTML5 Applications → 'Open' link of your app."
+          class="szHint sapUiSmallMarginBottom"/>
+
+        <Label text="Icon" class="sapUiTinyMarginBottom"/>
+        <HBox alignItems="Center">
+          <core:Icon
+            src="{ui>/appForm/iconUri}"
+            size="2rem"
+            color="#0a6ed1"
+            class="sapUiSmallMarginEnd"/>
+          <Text text="{ui>/appForm/iconUri}" class="szItemMeta sapUiSmallMarginEnd"/>
+          <Button
+            icon="sap-icon://edit"
+            text="Choose Icon"
+            press=".onOpenIconPicker"/>
+        </HBox>
+
+      </VBox>
+    </content>
+
+    <buttons>
+      <Button
+        text="Cancel"
+        press=".onCancelAppForm"/>
+      <Button
+        text="{= ${ui>/appForm/isEdit} ? 'Save Changes' : 'Add App' }"
+        type="Emphasized"
+        press=".onSubmitAppForm"/>
+    </buttons>
+  </Dialog>
+</core:FragmentDefinition>

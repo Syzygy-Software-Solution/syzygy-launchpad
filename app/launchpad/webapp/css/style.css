@@ -1,0 +1,237 @@
+/* -------- iframe host -------- */
+.szAppFrameHost,
+.szAppFrameHost > iframe.szAppFrame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.szAppPage { position: relative; }
+
+.szFrameBusy {
+  position: absolute !important;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+/* -------- home gradient --------
+   Paint the gradient on every layer that could otherwise show through
+   (Page root, its inner scroll section, sapMPage classes, and the
+   NavContainer page wrapper). */
+.szHomePage,
+.szHomePage > section,
+.szHomePage.sapMPage,
+.szHomePage .sapMPageEnableScrolling,
+.szHomePage.sapMNavItem {
+  background: linear-gradient(135deg, #f7f9fc 0%, #eef3f9 100%) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szHomePage,
+html[data-sz-theme="sap_horizon_dark"] .szHomePage > section,
+html[data-sz-theme="sap_horizon_dark"] .szHomePage.sapMPage,
+html[data-sz-theme="sap_horizon_dark"] .szHomePage .sapMPageEnableScrolling,
+html[data-sz-theme="sap_horizon_dark"] .szHomePage.sapMNavItem {
+  background: linear-gradient(135deg, #12171c 0%, #1a2129 100%) !important;
+}
+
+/* -------- home dashboard -------- */
+.szHomeContent { max-width: 1400px; margin-inline: auto; width: 100%; }
+.szHomeSubtitle { color: var(--sapContent_LabelColor); font-size: 0.85rem; margin-top: 0.15rem; }
+
+.szKpiCard,
+.szContentCard {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 37, 74, 0.04), 0 4px 12px rgba(15, 37, 74, 0.06) !important;
+  border: 1px solid rgba(15, 37, 74, 0.06) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.szKpiCard:hover,
+.szContentCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(15, 37, 74, 0.05), 0 10px 20px rgba(15, 37, 74, 0.10) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szKpiCard,
+html[data-sz-theme="sap_horizon_dark"] .szContentCard {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+.szKpiValue,
+.szKpiValue .sapMTitle {
+  font-size: 2rem !important;
+  font-weight: 700 !important;
+  color: var(--sz-navy) !important;
+  line-height: 1.2 !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szKpiValue,
+html[data-sz-theme="sap_horizon_dark"] .szKpiValue .sapMTitle {
+  color: #B8D4FF !important;
+}
+.szKpiHint {
+  font-size: 0.78rem;
+  color: var(--sapContent_LabelColor);
+  margin-top: 0.25rem;
+}
+
+.szPlainList .sapMListUl { background: transparent; }
+.szPlainList.sapMList { border: 0; }
+
+/* ensure greeting + subtitle stay readable on the gradient in both themes */
+.szHomeContent > .sapMFlexBox .sapMTitle { color: var(--sapTitleColor); }
+.szHomeContent .szHomeSubtitle { color: var(--sapContent_LabelColor); }
+
+/* -------- launchpad navy palette --------
+   Apply only inside our launchpad; iframe content keeps default theme.
+*/
+:root {
+  --sz-navy:        #1B3A6B;
+  --sz-navy-hover:  #14305A;
+  --sz-navy-active: #0F254A;
+  --sz-navy-dark:   #2F5285;     /* used in dark theme so it doesn't disappear */
+  --sz-navy-dark-hover: #3C5F94;
+}
+
+/* Emphasized button -> navy */
+.sapMBtn.sapMBtnEmphasized .sapMBtnInner {
+  background-color: var(--sz-navy) !important;
+  border-color: var(--sz-navy) !important;
+  color: #ffffff !important;
+}
+.sapMBtn.sapMBtnEmphasized .sapMBtnInner:hover {
+  background-color: var(--sz-navy-hover) !important;
+  border-color: var(--sz-navy-hover) !important;
+}
+.sapMBtn.sapMBtnEmphasized .sapMBtnInner:active {
+  background-color: var(--sz-navy-active) !important;
+  border-color: var(--sz-navy-active) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .sapMBtn.sapMBtnEmphasized .sapMBtnInner {
+  background-color: var(--sz-navy-dark) !important;
+  border-color: var(--sz-navy-dark) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .sapMBtn.sapMBtnEmphasized .sapMBtnInner:hover {
+  background-color: var(--sz-navy-dark-hover) !important;
+  border-color: var(--sz-navy-dark-hover) !important;
+}
+
+/* SegmentedButton selected item -> navy.
+   Target the inner pill (.sapMSegBBtnInner) — in UI5 1.136 the outer
+   .sapMSegBBtnSel spans a wrapper area, so painting it directly leaks
+   colour outside the rounded button. */
+.szThemeSwitch .sapMSegBBtn.sapMSegBBtnSel .sapMSegBBtnInner,
+.sapMSegBBtn.sapMSegBBtnSel .sapMSegBBtnInner {
+  background-color: var(--sz-navy) !important;
+  border-color: var(--sz-navy) !important;
+  color: #ffffff !important;
+}
+.szThemeSwitch .sapMSegBBtn.sapMSegBBtnSel .sapMSegBBtnInner .sapUiIcon,
+.sapMSegBBtn.sapMSegBBtnSel .sapMSegBBtnInner .sapUiIcon {
+  color: #ffffff !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .sapMSegBBtn.sapMSegBBtnSel .sapMSegBBtnInner {
+  background-color: var(--sz-navy-dark) !important;
+  border-color: var(--sz-navy-dark) !important;
+}
+
+/* the theme switch in the toolbar should be compact */
+.szThemeSwitch .sapMSegBBtn { min-width: 2.25rem; }
+
+/* -------- shell: user block -------- */
+.szUserBlock { padding-inline: 0.25rem; cursor: pointer; }
+.szUserText  { line-height: 1.1; }
+.szUserName  { font-weight: 600; font-size: 0.85rem; }
+.szUserRole  { font-size: 0.72rem; color: #6a6d70; }
+html[data-sz-theme="sap_horizon_dark"] .szUserRole { color: #b3b8be; }
+
+/* -------- user popover -------- */
+.szUserPopover .sapMPopover { border-radius: 12px; }
+.szUserMenu .sapMLIB:hover {
+  background-color: rgba(27, 58, 107, 0.06);
+}
+html[data-sz-theme="sap_horizon_dark"] .szUserMenu .sapMLIB:hover {
+  background-color: rgba(47, 82, 133, 0.20);
+}
+
+/* -------- manage dialog row -------- */
+.szRow { gap: 0.5rem; }
+.szRowLeft { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.szRowRight {
+  flex: 0 0 auto;
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+}
+.szRowSwitch { margin-inline: 0.25rem; }
+
+.szItemTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.szItemMeta {
+  font-size: 0.78rem;
+  color: #6a6d70;
+}
+
+.szDiscoverItem {
+  border-bottom: 1px solid #e5e5e5;
+}
+html[data-sz-theme="sap_horizon_dark"] .szDiscoverItem {
+  border-bottom-color: #2c3a48;
+}
+
+/* sidebar nav-list-group label */
+.sapTntNavLIGroupTitle {
+  font-size: 0.72rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6a6d70 !important;
+  padding-block: 0.5rem 0.25rem !important;
+  padding-inline-start: 1rem !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .sapTntNavLIGroupTitle {
+  color: #c8ccd1 !important;
+}
+
+/* spacing between Home block and Your Apps group */
+.sapTntSideNavigation .sapMNL + .sapMNL {
+  margin-top: 0.75rem;
+  border-top: 1px solid rgba(255,255,255,0.16);
+  padding-top: 0.5rem;
+}
+
+/* -------- icon picker grid -------- */
+.szIconGrid { gap: 0.25rem; }
+.szIconTile {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 4px;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.szIconTile:hover {
+  background-color: #eaf3fc;
+  border-color: var(--sz-navy);
+}
+html[data-sz-theme="sap_horizon_dark"] .szIconTile:hover {
+  background-color: #1f3a55;
+  border-color: var(--sz-navy-dark);
+}
+.szIconTileLabel {
+  font-size: 0.65rem;
+  color: #6a6d70;
+  text-align: center;
+  margin-top: 2px;
+  max-width: 72px;
+}
+
+/* -------- form hint -------- */
+.szHint {
+  font-size: 0.78rem;
+  color: #6a6d70;
+  font-style: italic;
+}

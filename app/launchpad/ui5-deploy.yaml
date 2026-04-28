@@ -1,0 +1,29 @@
+specVersion: "3.0"
+metadata:
+  name: syzygylaunchpad
+type: application
+framework:
+  name: SAPUI5
+  version: "1.136.5"
+  libraries:
+    - name: sap.m
+    - name: sap.tnt
+    - name: sap.ui.core
+    - name: sap.ui.layout
+    - name: themelib_sap_horizon
+resources:
+  configuration:
+    propertiesFileSourceEncoding: UTF-8
+builder:
+  resources:
+    excludes:
+      - /test/**
+      - /localService/**
+  customTasks:
+    - name: ui5-task-zipper
+      afterTask: generateCachebusterInfo
+      configuration:
+        archiveName: syzygylaunchpad
+        relativePaths: true
+        additionalFiles:
+          - xs-app.json

@@ -1,0 +1,36 @@
+{
+  "name": "syzygy-launchpad",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@sap/cds": "^9",
+    "@sap/xssec": "^4",
+    "@cap-js/hana": "^2",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^2",
+    "@sap/cds-dk": "^9",
+    "rimraf": "^5",
+    "mbt": "^1"
+  },
+  "scripts": {
+    "start": "cds-serve",
+    "watch": "cds watch",
+    "build": "rimraf mta_archives && mbt build",
+    "deploy": "cf deploy mta_archives/syzygy-launchpad_1.0.0.mtar",
+    "undeploy": "cf undeploy syzygy-launchpad --delete-services --delete-service-keys"
+  },
+  "cds": {
+    "requires": {
+      "auth": {
+        "[production]": { "kind": "xsuaa" },
+        "[development]": { "kind": "mocked" }
+      },
+      "db": {
+        "[production]": { "kind": "hana-cloud" },
+        "[development]": { "kind": "sqlite", "credentials": { "url": "db.sqlite" } }
+      }
+    }
+  }
+}

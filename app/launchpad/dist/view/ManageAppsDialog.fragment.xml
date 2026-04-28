@@ -1,0 +1,118 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <Dialog
+    id="manageDialog"
+    title="{i18n>manageDialogTitle}"
+    contentWidth="680px"
+    contentHeight="72%"
+    resizable="false"
+    draggable="false"
+    class="szManageDialog">
+
+    <subHeader>
+      <Toolbar>
+        <Text text="{i18n>manageDialogIntro}"/>
+        <ToolbarSpacer/>
+        <ObjectStatus
+          text="{ui>/manage/totalLabel}"
+          state="Information"/>
+        <ObjectStatus
+          text="{ui>/manage/configuredLabel}"
+          state="Success"/>
+      </Toolbar>
+    </subHeader>
+
+    <content>
+      <VBox class="sapUiSmallMargin">
+
+        <HBox alignItems="End" justifyContent="End" class="sapUiSmallMarginBottom">
+          <Button
+            icon="sap-icon://add"
+            text="Add New App"
+            type="Emphasized"
+            press=".onOpenAddApp"/>
+        </HBox>
+
+        <SearchField
+          placeholder="{i18n>searchApps}"
+          liveChange=".onSearchApps"
+          width="100%"
+          class="sapUiSmallMarginBottom"/>
+
+        <List
+          id="discoveredList"
+          items="{ui>/manage/items}"
+          noDataText="No apps registered yet. Click 'Add New App' to get started.">
+          <CustomListItem class="szDiscoverItem">
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMargin szRow" width="100%">
+              <HBox alignItems="Center" class="szRowLeft">
+                <core:Icon
+                  src="{ui>iconUri}"
+                  size="1.75rem"
+                  color="{= ${ui>enabled} ? '#107e3e' : '#6a6d70' }"
+                  class="sapUiSmallMarginEnd"/>
+                <VBox>
+                  <HBox alignItems="Center">
+                    <Text text="{ui>displayName}" class="szItemTitle"/>
+                    <ObjectStatus
+                      visible="{= ${ui>appType} !== 'url' }"
+                      text="app"
+                      state="Success"
+                      class="sapUiTinyMarginBegin"/>
+                    <ObjectStatus
+                      visible="{= ${ui>appType} === 'url' }"
+                      text="external"
+                      state="Warning"
+                      class="sapUiTinyMarginBegin"/>
+                  </HBox>
+                  <Text text="{ui>appId}" class="szItemMeta"/>
+                </VBox>
+              </HBox>
+
+              <HBox alignItems="Center" class="szRowRight">
+                <Switch
+                  state="{ui>enabled}"
+                  change=".onToggleApp"
+                  customData:appId="{ui>appId}"
+                  xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"
+                  class="szRowSwitch"/>
+                <Button
+                  icon="sap-icon://edit"
+                  type="Transparent"
+                  tooltip="Edit app"
+                  press=".onEditApp">
+                  <customData>
+                    <core:CustomData key="appId" value="{ui>appId}"/>
+                  </customData>
+                </Button>
+                <Button
+                  icon="sap-icon://delete"
+                  type="Transparent"
+                  tooltip="Remove app"
+                  press=".onDeleteApp">
+                  <customData>
+                    <core:CustomData key="appId" value="{ui>appId}"/>
+                    <core:CustomData key="displayName" value="{ui>displayName}"/>
+                  </customData>
+                </Button>
+              </HBox>
+            </HBox>
+          </CustomListItem>
+        </List>
+      </VBox>
+    </content>
+
+    <buttons>
+      <Button
+        icon="sap-icon://refresh"
+        text="{i18n>refresh}"
+        press=".onRefreshDiscover"/>
+      <Button
+        text="{i18n>close}"
+        type="Emphasized"
+        press=".onCloseManageDialog"/>
+    </buttons>
+  </Dialog>
+</core:FragmentDefinition>
