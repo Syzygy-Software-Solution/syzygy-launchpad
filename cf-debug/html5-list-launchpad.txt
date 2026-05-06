@@ -1,3 +1,0 @@
-Getting list of HTML5 applications available via destinations in org SyzygySPMOrg / space SyzygyDev as ssrivatsav@syzygysol.com...
-FAILED
-Could not find service instance of 'destination' service 'lite' plan with name 'syzygy-launchpad-html5-host'

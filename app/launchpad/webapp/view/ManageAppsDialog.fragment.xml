@@ -5,41 +5,49 @@
   <Dialog
     id="manageDialog"
     title="{i18n>manageDialogTitle}"
-    contentWidth="680px"
+    contentWidth="960px"
     contentHeight="72%"
     resizable="false"
     draggable="false"
     class="szManageDialog">
 
-    <subHeader>
-      <Toolbar>
-        <Text text="{i18n>manageDialogIntro}"/>
-        <ToolbarSpacer/>
-        <ObjectStatus
-          text="{ui>/manage/totalLabel}"
-          state="Information"/>
-        <ObjectStatus
-          text="{ui>/manage/configuredLabel}"
-          state="Success"/>
-      </Toolbar>
-    </subHeader>
-
     <content>
       <VBox class="sapUiSmallMargin">
-
-        <HBox alignItems="End" justifyContent="End" class="sapUiSmallMarginBottom">
-          <Button
-            icon="sap-icon://add"
-            text="Add New App"
-            type="Emphasized"
-            press=".onOpenAddApp"/>
-        </HBox>
 
         <SearchField
           placeholder="{i18n>searchApps}"
           liveChange=".onSearchApps"
           width="100%"
           class="sapUiSmallMarginBottom"/>
+
+        <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBottom szManageFilters">
+          <HBox alignItems="Center">
+            <MultiComboBox
+              id="filterAppType"
+              placeholder="App Type"
+              width="14rem"
+              selectionChange=".onManageFilterChange"
+              selectionFinish=".onManageFilterChange"
+              class="sapUiTinyMarginEnd">
+              <core:Item key="btp" text="BTP Application"/>
+              <core:Item key="url" text="External URL"/>
+            </MultiComboBox>
+            <MultiComboBox
+              id="filterStatus"
+              placeholder="Status"
+              width="12rem"
+              selectionChange=".onManageFilterChange"
+              selectionFinish=".onManageFilterChange">
+              <core:Item key="active"   text="Active"/>
+              <core:Item key="inactive" text="Inactive"/>
+            </MultiComboBox>
+          </HBox>
+          <Button
+            icon="sap-icon://add"
+            text="Add New App"
+            type="Emphasized"
+            press=".onOpenAddApp"/>
+        </HBox>
 
         <List
           id="discoveredList"

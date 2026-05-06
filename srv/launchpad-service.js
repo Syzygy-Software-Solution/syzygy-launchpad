@@ -63,4 +63,16 @@ module.exports = cds.service.impl(async function () {
     await UPDATE(ConfiguredApps).set({ enabled: !!enabled }).where({ appId });
     return true;
   });
+
+  this.on('currentUser', (req) => {
+    const u = req.user || {};
+    const attr = u.attr || {};
+    return {
+      id:        u.id || '',
+      email:     attr.email || u.id || '',
+      firstname: attr.given_name || attr.firstname || '',
+      lastname:  attr.family_name || attr.lastname || '',
+      name:      [attr.given_name, attr.family_name].filter(Boolean).join(' ') || u.id || ''
+    };
+  });
 });

@@ -15,6 +15,21 @@ sap.ui.define([
 
     onInit: function () {
       this._uiModel = this.getOwnerComponent().getModel("ui");
+      this._loadCurrentUser();
+    },
+
+    _loadCurrentUser: async function () {
+      try {
+        const res = await fetch(`${SERVICE_BASE}/currentUser()`, { headers: { Accept: "application/json" } });
+        if (!res.ok) return;
+        const u = await res.json();
+        const first = u.firstname || "";
+        const last  = u.lastname  || "";
+        const full  = (first + " " + last).trim() || u.name || u.email || "User";
+        const initials = ((first[0] || u.name?.[0] || "U") + (last[0] || "")).toUpperCase();
+        this._uiModel.setProperty("/user/name", full);
+        this._uiModel.setProperty("/user/initials", initials);
+      } catch (e) { /* keep defaults */ }
     },
 
     /* ---------- shell bar ---------- */
@@ -160,11 +175,30 @@ sap.ui.define([
     onRefreshDiscover: function () { this._reloadManageList(); },
 
     onSearchApps: function (oEvent) {
-      const q = (oEvent.getParameter("newValue") || "").toLowerCase();
+      this._manageSearch = (oEvent.getParameter("newValue") || "").toLowerCase();
+      this._applyManageFilters();
+    },
+
+    onManageFilterChange: function () {
+      this._applyManageFilters();
+    },
+
+    _applyManageFilters: function () {
+      const q = this._manageSearch || "";
       const all = this._uiModel.getProperty("/manage/allItems") || [];
-      const filtered = q
-        ? all.filter(a => a.displayName.toLowerCase().includes(q) || a.appId.toLowerCase().includes(q))
-        : all;
+      const view = this.getView();
+      const typeKeys   = (view.byId("filterAppType")?.getSelectedKeys() || []);
+      const statusKeys = (view.byId("filterStatus")?.getSelectedKeys() || []);
+
+      const filtered = all.filter(a => {
+        if (q && !a.displayName.toLowerCase().includes(q) && !a.appId.toLowerCase().includes(q)) return false;
+        if (typeKeys.length && !typeKeys.includes(a.appType)) return false;
+        if (statusKeys.length) {
+          const s = a.enabled ? "active" : "inactive";
+          if (!statusKeys.includes(s)) return false;
+        }
+        return true;
+      });
       this._uiModel.setProperty("/manage/items", filtered);
     },
 
@@ -180,9 +214,7 @@ sap.ui.define([
           iconUri: a.iconUri || 'sap-icon://grid'
         }));
         this._uiModel.setProperty("/manage/allItems", items);
-        this._uiModel.setProperty("/manage/items", items);
-        this._uiModel.setProperty("/manage/totalLabel", `${items.length} total`);
-        this._uiModel.setProperty("/manage/configuredLabel", `${items.filter(i => i.enabled).length} enabled`);
+        this._applyManageFilters();
       } catch (err) {
         MessageBox.error("Could not load apps.\n" + err.message);
       }
@@ -200,8 +232,7 @@ sap.ui.define([
         const all = this._uiModel.getProperty("/manage/allItems") || [];
         const updated = all.map(a => a.appId === appId ? { ...a, enabled: newState } : a);
         this._uiModel.setProperty("/manage/allItems", updated);
-        this._uiModel.setProperty("/manage/items", updated);
-        this._uiModel.setProperty("/manage/configuredLabel", `${updated.filter(i => i.enabled).length} enabled`);
+        this._applyManageFilters();
         // if we just disabled the active app, go home
         if (!newState && this._uiModel.getProperty("/currentAppId") === appId) this.onSelectHome();
         MessageToast.show(`App ${newState ? 'enabled' : 'disabled'}`);
