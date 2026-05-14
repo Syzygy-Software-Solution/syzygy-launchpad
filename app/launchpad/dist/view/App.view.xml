@@ -98,6 +98,21 @@
               select=".onSelectApp"/>
           </tnt:NavigationListGroup>
         </tnt:NavigationList>
+
+        <tnt:fixedItem>
+          <tnt:NavigationList>
+            <tnt:NavigationListItem
+              key="auditLogs"
+              text="Audit Logs"
+              icon="sap-icon://document-text"
+              select=".onSelectAuditLogs"/>
+            <tnt:NavigationListItem
+              key="administration"
+              text="Administration"
+              icon="sap-icon://shield"
+              select=".onSelectAdmin"/>
+          </tnt:NavigationList>
+        </tnt:fixedItem>
       </tnt:SideNavigation>
     </tnt:sideContent>
 
@@ -291,6 +306,211 @@
             visible="{ui>/frameLoading}"
             size="3rem"
             class="szFrameBusy"/>
+        </Page>
+
+        <!-- ═══ Audit Logs Page ═══ -->
+        <Page id="auditLogsPage" showHeader="false" class="szAuditPage sapUiNoContentPadding">
+          <VBox class="szAuditContent">
+
+            <!-- page heading -->
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAuditHeader">
+              <VBox>
+                <Title text="Audit Trail" level="H2"/>
+                <Text text="Track all user actions and data changes across the platform." class="szHomeSubtitle"/>
+              </VBox>
+              <DateRangeSelection
+                id="auditHeaderDateRange"
+                displayFormat="dd-MMM-yyyy"
+                placeholder="Select date range"
+                class="szAuditHeaderDate"/>
+            </HBox>
+
+            <!-- KPI summary tiles (5 cards, equal-width flex) -->
+            <HBox wrap="Wrap" class="szAuditKpiRow sapUiSmallMarginBottom">
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header>
+                  <card:Header title="Total Audit Records" subtitle="All Applications" iconSrc="sap-icon://document-text"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="25,842" level="H1" class="szKpiValue"/>
+                    <Text text="This period" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header>
+                  <card:Header title="Data Changes" subtitle="71.8% of total" iconSrc="sap-icon://edit"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="18,573" level="H1" class="szKpiValue szKpiSuccess"/>
+                    <Text text="Create / Update / Delete" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header>
+                  <card:Header title="Status Changes" subtitle="16.8% of total" iconSrc="sap-icon://synchronize"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="4,356" level="H1" class="szKpiValue szKpiInfo"/>
+                    <Text text="Workflow transitions" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header>
+                  <card:Header title="User Actions" subtitle="11.3% of total" iconSrc="sap-icon://employee"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="2,913" level="H1" class="szKpiValue szKpiWarning"/>
+                    <Text text="Login / access events" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header>
+                  <card:Header title="Failed Actions" subtitle="0.3% of total" iconSrc="sap-icon://warning"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="87" level="H1" class="szKpiValue szKpiError"/>
+                    <Text text="Errors and failures" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+            </HBox>
+
+            <!-- Filter panel (all filters + buttons in one flex row) -->
+            <f:Card class="sapUiSmallMarginBottom szAuditFilterCard">
+              <f:content>
+                <HBox wrap="Wrap" alignItems="End" class="szAuditFilterRow">
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
+                    <Label text="Date Range" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <DateRangeSelection id="auditFilterDateRange" displayFormat="dd-MMM-yyyy" width="100%"/>
+                  </VBox>
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
+                    <Label text="Application" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <Select id="auditFilterApp" width="100%">
+                      <items>
+                        <core:Item key="" text="All Applications"/>
+                        <core:Item key="commissions" text="Commissions Accounting"/>
+                        <core:Item key="partnerComm" text="Partner Commissions"/>
+                        <core:Item key="objectives" text="Objective Management"/>
+                        <core:Item key="masterdata" text="Master Data"/>
+                      </items>
+                    </Select>
+                  </VBox>
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
+                    <Label text="Module" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <Select id="auditFilterModule" width="100%">
+                      <items>
+                        <core:Item key="" text="All Modules"/>
+                      </items>
+                    </Select>
+                  </VBox>
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
+                    <Label text="Action Type" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <Select id="auditFilterActionType" width="100%">
+                      <items>
+                        <core:Item key="" text="All Actions"/>
+                        <core:Item key="CREATE" text="Create"/>
+                        <core:Item key="UPDATE" text="Update"/>
+                        <core:Item key="DELETE" text="Delete"/>
+                        <core:Item key="STATUS_CHANGE" text="Status Change"/>
+                        <core:Item key="APPROVE" text="Approve"/>
+                        <core:Item key="UPLOAD" text="Upload"/>
+                      </items>
+                    </Select>
+                  </VBox>
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
+                    <Label text="User" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <Select id="auditFilterUser" width="100%">
+                      <items>
+                        <core:Item key="" text="All Users"/>
+                      </items>
+                    </Select>
+                  </VBox>
+
+                  <VBox>
+                    <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
+                    <Label text="Entity Name / ID" design="Bold" class="sapUiTinyMarginBottom"/>
+                    <Input id="auditFilterEntity" placeholder="Enter Entity Name / ID" width="100%"/>
+                  </VBox>
+
+                  <HBox alignItems="Center" class="szAuditFilterBtns">
+                    <layoutData><FlexItemData growFactor="0" shrinkFactor="0"/></layoutData>
+                    <Button text="Reset" type="Default" press=".onAuditReset" class="sapUiTinyMarginEnd"/>
+                    <Button text="Search" type="Emphasized" icon="sap-icon://search" press=".onAuditSearch"/>
+                  </HBox>
+
+                </HBox>
+              </f:content>
+            </f:Card>
+
+            <!-- Audit Log table card -->
+            <f:Card class="szAuditTableCard">
+              <f:header>
+                <card:Header
+                  title="Audit Log"
+                  subtitle="Use the filters above and click Search to load records"/>
+              </f:header>
+              <f:content>
+                <VBox>
+                  <!-- Export / Columns toolbar — hidden until data is bound -->
+                  <HBox visible="false" justifyContent="End" class="sapUiTinyMarginBegin sapUiTinyMarginEnd szAuditTableToolbar">
+                    <Button text="Export" icon="sap-icon://excel-attachment" type="Default" press=".onAuditExport" class="sapUiTinyMarginEnd"/>
+                    <Button text="Columns" icon="sap-icon://action-settings" type="Default" press=".onAuditColumns"/>
+                  </HBox>
+                  <Table id="auditLogsTable" fixedLayout="false" noDataText="" class="szAuditTable">
+                    <columns>
+                      <Column width="150px" hAlign="Begin"><Text text="Date &amp; Time"/></Column>
+                      <Column width="170px" hAlign="Begin"><Text text="Application"/></Column>
+                      <Column width="140px" hAlign="Begin"><Text text="Module"/></Column>
+                      <Column width="160px" hAlign="Begin"><Text text="Entity Name"/></Column>
+                      <Column width="170px" hAlign="Begin"><Text text="Entity ID"/></Column>
+                      <Column width="130px" hAlign="Begin"><Text text="Action Type"/></Column>
+                      <Column width="130px" hAlign="Begin"><Text text="Field Name"/></Column>
+                      <Column width="150px" hAlign="Begin"><Text text="Old Value"/></Column>
+                      <Column width="150px" hAlign="Begin"><Text text="New Value"/></Column>
+                      <Column width="140px" hAlign="Begin"><Text text="User"/></Column>
+                      <Column width="100px" hAlign="Begin"><Text text="Status"/></Column>
+                      <Column width="100px" hAlign="Begin"><Text text="Source"/></Column>
+                    </columns>
+                  </Table>
+                </VBox>
+              </f:content>
+            </f:Card>
+
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration Page ═══ -->
+        <Page id="adminPage" showHeader="false" class="szAdminPage">
+          <VBox height="100%" justifyContent="Center" alignItems="Center" class="szAdminEmpty">
+            <core:Icon src="sap-icon://shield" size="5rem" color="Default" class="sapUiMediumMarginBottom szAdminEmptyIcon"/>
+            <Title text="Administration" level="H2" class="sapUiSmallMarginBottom"/>
+            <Text text="System administration features are currently being built. Check back soon." textAlign="Center" class="szAdminEmptyText"/>
+          </VBox>
         </Page>
 
         </NavContainer>

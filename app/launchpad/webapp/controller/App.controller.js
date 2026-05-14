@@ -230,6 +230,20 @@ sap.ui.define([
       this.byId("mainNav").to(this.byId("homePage"));
     },
 
+    onSelectAuditLogs: function () {
+      this._uiModel.setProperty("/currentAppId", null);
+      this._uiModel.setProperty("/currentAppUrl", null);
+      this._uiModel.setProperty("/selectedNavKey", "auditLogs");
+      this.byId("mainNav").to(this.byId("auditLogsPage"));
+    },
+
+    onSelectAdmin: function () {
+      this._uiModel.setProperty("/currentAppId", null);
+      this._uiModel.setProperty("/currentAppUrl", null);
+      this._uiModel.setProperty("/selectedNavKey", "administration");
+      this.byId("mainNav").to(this.byId("adminPage"));
+    },
+
     onSelectApp: async function (oEvent) {
       const item = oEvent.getSource();
       const ctx = item.getBindingContext();
@@ -249,6 +263,31 @@ sap.ui.define([
       this._uiModel.setProperty("/selectedNavKey", app.appId);
       this.byId("mainNav").to(this.byId("appPage"));
       this._loadAppIntoFrame(url, this._uiModel.getProperty("/theme"));
+    },
+
+    /* ---------- audit logs ---------- */
+
+    onAuditSearch: function () {
+      MessageToast.show("Search functionality coming soon.");
+    },
+
+    onAuditReset: function () {
+      var oView = this.getView();
+      oView.byId("auditFilterDateRange").setValue("");
+      oView.byId("auditFilterApp").setSelectedKey("");
+      oView.byId("auditFilterModule").setSelectedKey("");
+      oView.byId("auditFilterActionType").setSelectedKey("");
+      oView.byId("auditFilterUser").setSelectedKey("");
+      oView.byId("auditFilterEntity").setValue("");
+      MessageToast.show("Filters reset.");
+    },
+
+    onAuditExport: function () {
+      MessageToast.show("Export functionality coming soon.");
+    },
+
+    onAuditColumns: function () {
+      MessageToast.show("Column configuration coming soon.");
     },
 
     /* ---------- iframe injection ---------- */

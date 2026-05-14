@@ -358,3 +358,188 @@ html[data-sz-theme="sap_horizon_dark"] .szIconTile:hover {
   color: #6a6d70;
   font-style: italic;
 }
+
+/* ======== Audit Trail page ======== */
+
+.szAuditPage,
+.szAuditPage > section,
+.szAuditPage.sapMPage,
+.szAuditPage .sapMPageEnableScrolling,
+.szAuditPage.sapMNavItem {
+  background: linear-gradient(135deg, #f7f9fc 0%, #eef3f9 100%) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAuditPage,
+html[data-sz-theme="sap_horizon_dark"] .szAuditPage > section,
+html[data-sz-theme="sap_horizon_dark"] .szAuditPage.sapMPage,
+html[data-sz-theme="sap_horizon_dark"] .szAuditPage .sapMPageEnableScrolling,
+html[data-sz-theme="sap_horizon_dark"] .szAuditPage.sapMNavItem {
+  background: linear-gradient(135deg, #12171c 0%, #1a2129 100%) !important;
+}
+
+.szAuditContent {
+  max-width: 1600px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.5rem 2rem;
+}
+@media (max-width: 1280px) {
+  .szAuditContent { padding: 1.25rem 1.5rem; }
+}
+@media (max-width: 1024px) {
+  .szAuditContent { padding: 1rem 1.25rem; }
+}
+@media (max-width: 600px) {
+  .szAuditContent { padding: 0.75rem; }
+}
+
+/* Heading row: stack on small */
+.szAuditHeader { flex-wrap: wrap; row-gap: 0.5rem; min-width: 0; }
+.szAuditHeader > .sapMVBox { min-width: 0; flex: 1 1 auto; }
+
+.szAuditHeaderDate { min-width: 240px; }
+
+/* KPI value colour variants */
+.szKpiSuccess .sapMTitle { color: #107e3e !important; }
+html[data-sz-theme="sap_horizon_dark"] .szKpiSuccess .sapMTitle { color: #91c98a !important; }
+
+.szKpiInfo .sapMTitle { color: #0070f2 !important; }
+html[data-sz-theme="sap_horizon_dark"] .szKpiInfo .sapMTitle { color: #5baff3 !important; }
+
+.szKpiWarning .sapMTitle { color: #e76500 !important; }
+html[data-sz-theme="sap_horizon_dark"] .szKpiWarning .sapMTitle { color: #f0ab00 !important; }
+
+.szKpiError .sapMTitle { color: #bb0000 !important; }
+html[data-sz-theme="sap_horizon_dark"] .szKpiError .sapMTitle { color: #ff6b6b !important; }
+
+/* Audit KPI cards: same look as home KPI cards but narrower content */
+.szAuditKpiCard .sapFCardContent > .sapMVBox { padding: 0.75rem !important; }
+.szAuditKpiCard .szKpiValue.sapMTitle,
+.szAuditKpiCard .szKpiValue .sapMTitle {
+  font-size: 1.7rem !important;
+}
+
+/* Audit empty state (replaces IllustratedMessage) */
+.szAuditEmptyState {
+  padding: 3rem 2rem;
+}
+.szAuditEmptyIcon {
+  color: var(--sapContent_NonInteractiveIconColor) !important;
+  opacity: 0.55;
+}
+.szAuditEmptyState .sapMTitle {
+  color: var(--sapTitleColor);
+}
+.szAuditEmptyState .sapMText {
+  color: var(--sapContent_LabelColor);
+  max-width: 420px;
+}
+
+/* Admin empty state */
+.szAdminEmpty { padding: 4rem 2rem; }
+.szAdminEmptyIcon {
+  color: var(--sapContent_NonInteractiveIconColor) !important;
+  opacity: 0.45;
+}
+.szAdminEmptyText {
+  color: var(--sapContent_LabelColor);
+  max-width: 400px;
+}
+
+/* KPI row: equal-width flex cards, fill full width */
+.szAuditKpiRow {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: stretch;
+}
+.szAuditKpiRow > .sapMFlexItem {
+  flex: 1 1 0 !important;
+  min-width: 180px;
+}
+/* card inside the flex item must fill the item width and height */
+.szAuditKpiRow > .sapMFlexItem > .sapFCard {
+  width: 100% !important;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Filter row: single flex line, all filters + buttons together */
+.szAuditFilterRow {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  padding: 1rem;
+}
+.szAuditFilterRow > .sapMFlexItem {
+  flex: 1 1 150px !important;
+  min-width: 140px;
+}
+.szAuditFilterBtns {
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Filter card */
+.szAuditFilterCard {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 37, 74, 0.04), 0 4px 12px rgba(15, 37, 74, 0.06) !important;
+  border: 1px solid rgba(15, 37, 74, 0.06) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAuditFilterCard {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Table card */
+.szAuditTableCard {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 37, 74, 0.04), 0 4px 12px rgba(15, 37, 74, 0.06) !important;
+  border: 1px solid rgba(15, 37, 74, 0.06) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAuditTableCard {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Toolbar row above table */
+.szAuditTableToolbar {
+  padding: 0.5rem 0.75rem;
+}
+
+/* Placeholder body shown until data binding is wired */
+.szAuditTablePlaceholder {
+  min-height: 4rem;
+}
+
+/* Table header row: navy background */
+.szAuditTable .sapMListTblHeader {
+  background-color: var(--sz-navy) !important;
+}
+.szAuditTable .sapMListTblHeaderCell .sapMText {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAuditTable .sapMListTblHeader {
+  background-color: var(--sz-navy-dark) !important;
+}
+
+/* Transparent list background inside cards */
+.szAuditTable.sapMList,
+.szAuditTable .sapMListUl { background: transparent; }
+
+/* ======== Administration page ======== */
+
+.szAdminPage,
+.szAdminPage > section,
+.szAdminPage.sapMPage,
+.szAdminPage .sapMPageEnableScrolling,
+.szAdminPage.sapMNavItem {
+  background: linear-gradient(135deg, #f7f9fc 0%, #eef3f9 100%) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAdminPage,
+html[data-sz-theme="sap_horizon_dark"] .szAdminPage > section,
+html[data-sz-theme="sap_horizon_dark"] .szAdminPage.sapMPage,
+html[data-sz-theme="sap_horizon_dark"] .szAdminPage .sapMPageEnableScrolling,
+html[data-sz-theme="sap_horizon_dark"] .szAdminPage.sapMNavItem {
+  background: linear-gradient(135deg, #12171c 0%, #1a2129 100%) !important;
+}
