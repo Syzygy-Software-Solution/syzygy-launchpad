@@ -36,5 +36,14 @@
         </HBox>
       </CustomListItem>
     </List>
+
+    <HBox justifyContent="End" class="szUserPopoverFooter">
+      <Button
+        text="Sign Out"
+        icon="sap-icon://log"
+        type="Transparent"
+        class="szSignOutBtn"
+        press=".onUserMenuSignOut"/>
+    </HBox>
   </ResponsivePopover>
 </core:FragmentDefinition>

@@ -1,3 +1,60 @@
+/* -------- global search bar -------- */
+.szGlobalSearch { max-width: 300px; }
+
+/* Soften the search field inside the dark tool header */
+.sapTntToolHeader .szGlobalSearch .sapMSFI { border-radius: 6px; }
+
+/* -------- AI bot button -------- */
+.szAiBotButton .sapMBtnInner {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.45);
+  transition: box-shadow 0.2s, filter 0.2s;
+}
+.szAiBotButton .sapMBtnIcon {
+  color: #fff !important;
+}
+.szAiBotButton:hover .sapMBtnInner {
+  filter: brightness(1.12);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.7);
+}
+html[data-sz-theme="sap_horizon_dark"] .szAiBotButton .sapMBtnInner {
+  background: linear-gradient(135deg, #818cf8, #a78bfa) !important;
+  box-shadow: 0 0 18px rgba(167, 139, 250, 0.55);
+}
+
+/* -------- AI side panel -------- */
+.szMainLayout { overflow: hidden; }
+
+.szMainNavContainer { height: 100%; }
+
+.szAiPanel {
+  width: 380px;
+  min-width: 380px;
+  border-left: 1px solid var(--sapList_BorderColor);
+  background: var(--sapBackgroundColor);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.szAiPanelHeader.sapMTB { border-bottom: 1px solid var(--sapList_BorderColor); padding: 0 0.75rem; }
+
+.szAiPanelBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+.szAiInputBar {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--sapList_BorderColor);
+  gap: 0.25rem;
+}
+
+.szAiTextInput.sapMTextArea { width: 100%; }
+
+/* -------- notifications -------- */
+.szNotifList.sapMList { background: transparent; }
+
 /* -------- iframe host -------- */
 .szAppFrameHost,
 .szAppFrameHost > iframe.szAppFrame {
@@ -8,6 +65,43 @@
 }
 
 .szAppPage { position: relative; }
+
+/* -------- settings dialog -------- */
+.szSettingsSplit { height: 100%; }
+
+.szSettingsNav {
+  width: 260px;
+  min-width: 260px;
+  border-right: 1px solid var(--sapList_BorderColor);
+  overflow-y: auto;
+}
+.szSettingsNav .sapMList { background: transparent; border: none; }
+/* Tighten up the nav item padding */
+.szSettingsNavList .sapMLIB { padding-inline-start: 1rem; }
+
+.szSettingsContent {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  min-width: 0;
+}
+
+.szSettingsSection { width: 100%; }
+
+hr.szSettingsDivider {
+  border: none;
+  border-top: 1px solid var(--sapList_BorderColor);
+  margin: 0 0 1rem 0;
+}
+
+.szSettingsSectionDesc {
+  color: var(--sapContent_LabelColor);
+  font-size: 0.875rem;
+}
+
+/* Theme list: remove list background so it blends with the settings panel */
+.szThemeList.sapMList { background: transparent; border: none; }
+.szThemeList .sapMLIB { background: transparent; }
 
 .szFrameBusy {
   position: absolute !important;
@@ -37,7 +131,27 @@ html[data-sz-theme="sap_horizon_dark"] .szHomePage.sapMNavItem {
 }
 
 /* -------- home dashboard -------- */
-.szHomeContent { max-width: 1400px; margin-inline: auto; width: 100%; }
+.szHomeContent {
+  max-width: 1400px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.5rem 2rem;
+}
+/* scale padding as viewport narrows */
+@media (max-width: 1280px) {
+  .szHomeContent { padding: 1.25rem 1.5rem; }
+}
+@media (max-width: 1024px) {
+  .szHomeContent { padding: 1rem 1.25rem; }
+}
+@media (max-width: 600px) {
+  .szHomeContent { padding: 0.75rem; }
+}
+/* greeting row: stack vertically on small screens */
+.szHomeGreeting { flex-wrap: wrap; row-gap: 0.5rem; min-width: 0; }
+.szHomeGreeting > .sapMFlexBox,
+.szHomeGreeting > .sapMVBox { min-width: 0; flex: 1 1 auto; }
 .szHomeSubtitle { color: var(--sapContent_LabelColor); font-size: 0.85rem; margin-top: 0.15rem; }
 
 .szKpiCard,
@@ -153,6 +267,15 @@ html[data-sz-theme="sap_horizon_dark"] .szUserRole { color: #b3b8be; }
 html[data-sz-theme="sap_horizon_dark"] .szUserMenu .sapMLIB:hover {
   background-color: rgba(47, 82, 133, 0.20);
 }
+.szUserPopoverFooter {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0.4rem 0.75rem;
+}
+html[data-sz-theme="sap_horizon_dark"] .szUserPopoverFooter {
+  border-top-color: rgba(255, 255, 255, 0.10);
+}
+.szSignOutBtn .sapMBtnInner { color: #0070f2; }
+.szSignOutBtn .sapMBtnIcon  { color: #0070f2; }
 
 /* -------- manage dialog row -------- */
 .szRow { gap: 0.5rem; }

@@ -9,13 +9,51 @@ sap.ui.define([
   "use strict";
 
   const SERVICE_BASE = "/odata/v4/launchpad";
-  const THEME_KEY = "syzygyLaunchpadTheme";
+  const THEME_KEY    = "syzygyLaunchpadTheme";
+
+  // ---- idle-timeout (mirrors approuter sessionTimeout) ----
+  // Keep this in sync with the sessionTimeout value in app/router/xs-app.json.
+  // Set to 10 minutes.
+  const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+  const IDLE_EVENTS     = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
 
   return Controller.extend("syzygylaunchpad.controller.App", {
 
     onInit: function () {
       this._uiModel = this.getOwnerComponent().getModel("ui");
       this._loadCurrentUser();
+      this._startIdleTimer();
+    },
+
+    onExit: function () {
+      this._clearIdleTimer();
+    },
+
+    /* ---------- idle-session timeout ---------- */
+
+    _startIdleTimer: function () {
+      this._idleResetHandler = this._resetIdleTimer.bind(this);
+      IDLE_EVENTS.forEach(ev =>
+        document.addEventListener(ev, this._idleResetHandler, { passive: true })
+      );
+      this._resetIdleTimer();
+    },
+
+    _resetIdleTimer: function () {
+      if (this._idleTimerId) clearTimeout(this._idleTimerId);
+      this._idleTimerId = setTimeout(() => {
+        // Session has timed out on the client side — redirect through the
+        // approuter logout endpoint so the server session is also cleared,
+        // and the user lands on the custom logout page.
+        window.location.href = "/do/logout";
+      }, IDLE_TIMEOUT_MS);
+    },
+
+    _clearIdleTimer: function () {
+      if (this._idleTimerId) clearTimeout(this._idleTimerId);
+      IDLE_EVENTS.forEach(ev =>
+        document.removeEventListener(ev, this._idleResetHandler)
+      );
     },
 
     _loadCurrentUser: async function () {
@@ -27,8 +65,14 @@ sap.ui.define([
         const last  = u.lastname  || "";
         const full  = (first + " " + last).trim() || u.name || u.email || "User";
         const initials = ((first[0] || u.name?.[0] || "U") + (last[0] || "")).toUpperCase();
-        this._uiModel.setProperty("/user/name", full);
-        this._uiModel.setProperty("/user/initials", initials);
+        this._uiModel.setProperty("/user/name",      full);
+        this._uiModel.setProperty("/user/initials",  initials);
+        this._uiModel.setProperty("/user/email",     u.email || "");
+        this._uiModel.setProperty("/user/firstname", first);
+        this._uiModel.setProperty("/user/lastname",  last);
+        // Pre-populate the settings form
+        this._uiModel.setProperty("/settings/firstname", first);
+        this._uiModel.setProperty("/settings/lastname",  last);
       } catch (e) { /* keep defaults */ }
     },
 
@@ -56,11 +100,40 @@ sap.ui.define([
     },
 
     onOpenAiBot: function () {
-      MessageBox.information("AI Assistant is coming soon.", { title: "AI Assistant" });
+      this._uiModel.setProperty("/aiPanelOpen", !this._uiModel.getProperty("/aiPanelOpen"));
     },
 
-    onOpenNotifications: function () {
-      MessageBox.information("You have no new notifications.", { title: "Notifications" });
+    onCloseAiPanel: function () {
+      this._uiModel.setProperty("/aiPanelOpen", false);
+    },
+
+    onOpenNotifications: async function (oEvent) {
+      if (!this._notifPopover) {
+        this._notifPopover = await Fragment.load({
+          id: this.getView().getId(),
+          name: "syzygylaunchpad.view.NotificationsPopover",
+          controller: this
+        });
+        this.getView().addDependent(this._notifPopover);
+      }
+      this._notifPopover.openBy(oEvent.getSource());
+    },
+
+    onGlobalSearch: function () {
+      MessageToast.show("Search is coming soon.");
+    },
+
+    onClearAllNotifications: function () {
+      MessageToast.show("All notifications cleared.");
+      if (this._notifPopover) this._notifPopover.close();
+    },
+
+    onNotificationClose: function () {
+      MessageToast.show("Notification dismissed.");
+    },
+
+    onSeeAllNotifications: function () {
+      MessageToast.show("Full notifications panel is coming soon.");
     },
 
     onUserPress: async function (oEvent) {
@@ -80,9 +153,70 @@ sap.ui.define([
       this.onOpenManageDialog();
     },
 
-    onUserMenuSettings: function () {
+    onUserMenuSettings: async function () {
       if (this._userPopover) this._userPopover.close();
-      MessageBox.information("Settings coming soon.", { title: "Settings" });
+      await this._openSettingsDialog();
+    },
+
+    onUserMenuSignOut: function () {
+      if (this._userPopover) this._userPopover.close();
+      // Hand off to the approuter, which terminates the XSUAA session and
+      // redirects the browser to the configured logoutPage.
+      window.location.href = "/do/logout";
+    },
+
+    /* ---------- settings dialog ---------- */
+
+    _openSettingsDialog: async function () {
+      if (!this._settingsDialog) {
+        this._settingsDialog = await Fragment.load({
+          id: this.getView().getId(),
+          name: "syzygylaunchpad.view.SettingsDialog",
+          controller: this
+        });
+        this.getView().addDependent(this._settingsDialog);
+      }
+      this._uiModel.setProperty("/settings/section", "userAccount");
+      this._settingsDialog.open();
+    },
+
+    onCloseSettings: function () {
+      if (this._settingsDialog) this._settingsDialog.close();
+    },
+
+    onSettingsSectionPress: function (oEvent) {
+      const section = oEvent.getSource().data("section");
+      if (section) this._uiModel.setProperty("/settings/section", section);
+    },
+
+    onSaveUserProfile: async function () {
+      const s = this._uiModel.getProperty("/settings");
+      const firstname = (s.firstname || "").trim();
+      const lastname  = (s.lastname  || "").trim();
+      if (this._settingsDialog) this._settingsDialog.setBusy(true);
+      try {
+        const updated = await this._callAction("updateUserProfile", { firstname, lastname });
+        const full     = (updated.firstname + " " + updated.lastname).trim() || updated.name || "User";
+        const initials = ((updated.firstname?.[0] || "U") + (updated.lastname?.[0] || "")).toUpperCase();
+        this._uiModel.setProperty("/user/name",       full);
+        this._uiModel.setProperty("/user/initials",   initials);
+        this._uiModel.setProperty("/user/firstname",  updated.firstname);
+        this._uiModel.setProperty("/user/lastname",   updated.lastname);
+        this._uiModel.setProperty("/settings/firstname", updated.firstname);
+        this._uiModel.setProperty("/settings/lastname",  updated.lastname);
+        MessageToast.show("Profile saved");
+      } catch (err) {
+        MessageBox.error("Could not save profile.\n" + err.message);
+      } finally {
+        if (this._settingsDialog) this._settingsDialog.setBusy(false);
+      }
+    },
+
+    onThemeSelectionChange: function (oEvent) {
+      const items = oEvent.getSource().getItems();
+      const selected = oEvent.getParameter("listItem");
+      const idx = items.indexOf(selected);
+      this._applyTheme(idx === 0 ? "sap_horizon" : "sap_horizon_dark");
     },
 
     /* ---------- nav ---------- */

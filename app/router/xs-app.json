@@ -1,7 +1,11 @@
 {
   "welcomeFile": "/syzygylaunchpad/index.html",
   "authenticationMethod": "route",
-  "sessionTimeout": 30,
+  "sessionTimeout": 10,
+  "logout": {
+    "logoutEndpoint": "/do/logout",
+    "logoutPage": "/syzygylaunchpad/logout.html"
+  },
   "pluginMetadataEndpoint": "/pluginMetadata",
   "routes": [
     {
@@ -10,6 +14,12 @@
       "destination": "srv-api",
       "authenticationType": "xsuaa",
       "csrfProtection": false
+    },
+    {
+      "source": "^/syzygylaunchpad/logout.html$",
+      "target": "/syzygylaunchpad/logout.html",
+      "service": "html5-apps-repo-rt",
+      "authenticationType": "none"
     },
     {
       "source": "^(/.*)$",

@@ -24,11 +24,20 @@ sap.ui.define([
         selectedNavKey: "home",
         sideExpanded: true,
         frameLoading: false,
+        aiPanelOpen: false,
         theme: savedTheme,
         user: {
           name: "John Smith",
           initials: "JS",
-          role: "Admin"
+          role: "Admin",
+          email: "",
+          firstname: "",
+          lastname: ""
+        },
+        settings: {
+          section: "userAccount",
+          firstname: "",
+          lastname: ""
         },
         manage: {
           items: [],

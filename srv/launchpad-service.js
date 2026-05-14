@@ -64,15 +64,48 @@ module.exports = cds.service.impl(async function () {
     return true;
   });
 
-  this.on('currentUser', (req) => {
+  this.on('currentUser', async (req) => {
     const u = req.user || {};
     const attr = u.attr || {};
+
+    // Base values from the XSUAA JWT
+    let firstname = attr.given_name || attr.firstname || '';
+    let lastname  = attr.family_name || attr.lastname  || '';
+
+    // Override with any DB-persisted profile (user may have customised their name)
+    try {
+      const profile = await SELECT.one.from('sz.UserProfile').where({ userId: u.id });
+      if (profile) {
+        if (profile.firstname !== undefined) firstname = profile.firstname;
+        if (profile.lastname  !== undefined) lastname  = profile.lastname;
+      }
+    } catch (e) { /* fall back to XSUAA values on any DB error */ }
+
     return {
       id:        u.id || '',
       email:     attr.email || u.id || '',
-      firstname: attr.given_name || attr.firstname || '',
-      lastname:  attr.family_name || attr.lastname || '',
-      name:      [attr.given_name, attr.family_name].filter(Boolean).join(' ') || u.id || ''
+      firstname,
+      lastname,
+      name: [firstname, lastname].filter(Boolean).join(' ') || u.id || ''
+    };
+  });
+
+  this.on('updateUserProfile', async (req) => {
+    const { firstname, lastname } = req.data;
+    const userId = req.user?.id;
+    if (!userId) return req.reject(401, 'Not authenticated');
+
+    await UPSERT.into('sz.UserProfile').entries({ userId, firstname, lastname });
+
+    // Return the updated user so the UI can refresh in one round-trip
+    const u    = req.user;
+    const attr = u.attr || {};
+    return {
+      id:        u.id,
+      email:     attr.email || u.id,
+      firstname,
+      lastname,
+      name: [firstname, lastname].filter(Boolean).join(' ') || u.id
     };
   });
 });

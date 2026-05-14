@@ -1,6 +1,10 @@
 {
   "welcomeFile": "/index.html",
   "authenticationMethod": "route",
+  "logout": {
+    "logoutEndpoint": "/do/logout",
+    "logoutPage": "/logout.html"
+  },
   "routes": [
     {
       "source": "^/odata/v4/launchpad/(.*)$",
@@ -8,6 +12,12 @@
       "destination": "srv-api",
       "authenticationType": "xsuaa",
       "csrfProtection": false
+    },
+    {
+      "source": "^/logout.html$",
+      "target": "/logout.html",
+      "service": "html5-apps-repo-rt",
+      "authenticationType": "none"
     },
     {
       "source": "^(.*)$",

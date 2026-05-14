@@ -12,3 +12,12 @@ entity ConfiguredApps : managed {
       enabled      : Boolean default true;
       sortOrder    : Integer default 0;
 }
+
+// Stores user-supplied display name overrides (keyed by XSUAA user ID).
+// XSUAA attributes are read-only; this table lets users personalise their
+// name shown in the launchpad without touching IdP attributes.
+entity UserProfile {
+  key userId    : String(200);
+      firstname : String(100);
+      lastname  : String(100);
+}

@@ -23,29 +23,33 @@
 
         <ToolbarSpacer/>
 
+        <SearchField
+          id="globalSearch"
+          placeholder="Search (Coming Soon)"
+          width="280px"
+          search=".onGlobalSearch"
+          class="szGlobalSearch"/>
+
+        <ToolbarSpacer/>
+
         <Button
+          id="aiBotBtn"
           icon="sap-icon://ai"
           type="Transparent"
           tooltip="AI Assistant"
-          press=".onOpenAiBot"/>
+          press=".onOpenAiBot"
+          class="szAiBotButton sapUiTinyMarginEnd"/>
 
         <Button
           icon="sap-icon://bell"
           type="Transparent"
           tooltip="Notifications"
-          press=".onOpenNotifications"/>
-
-        <SegmentedButton
-          selectedKey="{ui>/theme}"
-          selectionChange=".onThemeChange"
-          class="szThemeSwitch sapUiTinyMarginBegin sapUiTinyMarginEnd">
-          <items>
-            <SegmentedButtonItem key="sap_horizon"      icon="sap-icon://light-mode" tooltip="Light theme"/>
-            <SegmentedButtonItem key="sap_horizon_dark" icon="sap-icon://dark-mode"  tooltip="Dark theme"/>
-          </items>
-        </SegmentedButton>
-
-        <ToolbarSeparator/>
+          press=".onOpenNotifications"
+          class="sapUiTinyMarginEnd">
+          <customData>
+            <BadgeCustomData value="4" visible="true"/>
+          </customData>
+        </Button>
 
         <HBox alignItems="Center" class="szUserBlock sapUiTinyMarginBegin sapUiTinyMarginEnd">
           <VBox alignItems="End" class="sapUiTinyMarginEnd szUserText">
@@ -98,13 +102,16 @@
     </tnt:sideContent>
 
     <tnt:mainContents>
-      <NavContainer id="mainNav" defaultTransitionName="show">
+      <HBox id="mainLayout" height="100%" renderType="Bare" class="szMainLayout">
 
-        <Page id="homePage" showHeader="false" class="szHomePage">
-          <VBox class="szHomeContent sapUiMediumMargin">
+        <NavContainer id="mainNav" defaultTransitionName="show" class="szMainNavContainer">
+          <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
+
+        <Page id="homePage" showHeader="false" class="szHomePage sapUiNoContentPadding">
+          <VBox class="szHomeContent">
 
             <!-- greeting -->
-            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom">
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szHomeGreeting">
               <VBox>
                 <Title text="{= 'Good day, ' + ${ui>/user/name} }" level="H2"/>
                 <Text text="Here's what's happening across your sales platform today." class="szHomeSubtitle"/>
@@ -117,7 +124,7 @@
             </HBox>
 
             <!-- KPI tiles row -->
-            <l:Grid defaultSpan="L3 M6 S12" hSpacing="1" vSpacing="1" class="sapUiSmallMarginBottom">
+            <l:Grid defaultSpan="L3 M6 S12" hSpacing="1" vSpacing="1" containerQuery="true" class="sapUiSmallMarginBottom">
               <f:Card class="szKpiCard">
                 <f:header>
                   <card:Header
@@ -185,7 +192,7 @@
             </l:Grid>
 
             <!-- content cards -->
-            <l:Grid defaultSpan="L6 M12 S12" hSpacing="1" vSpacing="1">
+            <l:Grid defaultSpan="L6 M12 S12" hSpacing="1" vSpacing="1" containerQuery="true">
 
               <!-- Partner commissions card -->
               <f:Card class="szContentCard">
@@ -286,7 +293,45 @@
             class="szFrameBusy"/>
         </Page>
 
-      </NavContainer>
+        </NavContainer>
+
+        <!-- AI chat side panel -->
+        <VBox id="aiChatPanel" visible="{ui>/aiPanelOpen}" height="100%" class="szAiPanel">
+          <layoutData><FlexItemData shrinkFactor="0" baseSize="380px"/></layoutData>
+
+          <!-- header -->
+          <Toolbar class="szAiPanelHeader sapMTB-Transparent-CTX">
+            <Title text="AI Assistant" level="H4"/>
+            <ToolbarSpacer/>
+            <Button icon="sap-icon://decline" type="Transparent" tooltip="Close" press=".onCloseAiPanel"/>
+          </Toolbar>
+
+          <!-- illustrated placeholder -->
+          <VBox class="szAiPanelBody" justifyContent="Center" alignItems="Center">
+            <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
+            <IllustratedMessage
+              illustrationType="NoData"
+              title="AI Assistant"
+              description="Your intelligent copilot for Sales Performance insights. Chat functionality coming soon."/>
+          </VBox>
+
+          <!-- input bar -->
+          <HBox alignItems="Center" class="szAiInputBar">
+            <TextArea
+              id="aiChatInput"
+              placeholder="Ask me something..."
+              growing="true"
+              growingMaxLines="3"
+              rows="1"
+              class="szAiTextInput">
+              <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
+            </TextArea>
+            <Button icon="sap-icon://microphone" type="Transparent" tooltip="Voice input" class="sapUiTinyMarginBegin"/>
+            <Button icon="sap-icon://paper-plane" type="Emphasized" tooltip="Send" class="sapUiTinyMarginBegin"/>
+          </HBox>
+        </VBox>
+
+      </HBox>
     </tnt:mainContents>
   </tnt:ToolPage>
 </mvc:View>

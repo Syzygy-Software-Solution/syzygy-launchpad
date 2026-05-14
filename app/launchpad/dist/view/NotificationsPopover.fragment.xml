@@ -1,0 +1,96 @@
+<Popover
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  id="notifPopover"
+  title="Notifications"
+  placement="Bottom"
+  contentWidth="420px"
+  contentHeight="480px"
+  showHeader="true">
+
+  <subHeader>
+    <Toolbar class="sapMTB-Transparent-CTX">
+      <Select id="notifFilter" width="170px">
+        <items>
+          <core:Item key="all"    text="All Notifications"/>
+          <core:Item key="unread" text="Unread (4)"/>
+        </items>
+      </Select>
+      <ToolbarSpacer/>
+      <Button
+        icon="sap-icon://delete"
+        type="Transparent"
+        tooltip="Clear all notifications"
+        press=".onClearAllNotifications"/>
+    </Toolbar>
+  </subHeader>
+
+  <List showSeparators="Inner" class="szNotifList">
+
+    <NotificationListItem
+      title="Q2 Commission Run Completed"
+      description="247 partners processed successfully. Payouts scheduled for May 15."
+      datetime="5 min ago"
+      showCloseButton="true"
+      read="false"
+      priority="Low"
+      close=".onNotificationClose"/>
+
+    <NotificationListItem
+      title="New Partner Onboarded: TechGlobal Inc"
+      description="TechGlobal Inc has been added to the APAC region. Review the partner profile."
+      datetime="2 hours ago"
+      showCloseButton="true"
+      read="false"
+      priority="None"
+      close=".onNotificationClose"/>
+
+    <NotificationListItem
+      title="Dispute #4821 Escalated"
+      description="Dispute raised by Acme Corp requires urgent attention. SLA deadline in 24 hours."
+      datetime="4 hours ago"
+      showCloseButton="true"
+      read="false"
+      priority="High"
+      close=".onNotificationClose"/>
+
+    <NotificationListItem
+      title="North America Territory Plan Published"
+      description="The updated territory plan for North America is now active for Q3 2026."
+      datetime="1 day ago"
+      showCloseButton="true"
+      read="false"
+      priority="None"
+      close=".onNotificationClose"/>
+
+    <NotificationListItem
+      title="Q3 2026 Forecast Model Updated"
+      description="The forecasting model has been refreshed with the latest pipeline data."
+      datetime="2 days ago"
+      showCloseButton="true"
+      read="true"
+      priority="None"
+      close=".onNotificationClose"/>
+
+    <NotificationListItem
+      title="May Rep Leaderboard Refreshed"
+      description="Monthly sales rep performance leaderboard is now available."
+      datetime="3 days ago"
+      showCloseButton="true"
+      read="true"
+      priority="None"
+      close=".onNotificationClose"/>
+
+  </List>
+
+  <footer>
+    <Toolbar class="sapMTB-Transparent-CTX">
+      <ToolbarSpacer/>
+      <Button
+        text="See all notifications"
+        type="Transparent"
+        press=".onSeeAllNotifications"/>
+    </Toolbar>
+  </footer>
+
+</Popover>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Ended &middot; Syzygy Launchpad</title>
+    <style>
+      :root {
+        --sz-bg: #f5f6f7;
+        --sz-fg: #1d2d3e;
+        --sz-muted: #5b6770;
+        --sz-primary: #0070f2;
+        --sz-primary-hover: #0064d9;
+        --sz-card: #ffffff;
+        --sz-shadow: 0 8px 32px rgba(20, 40, 80, 0.08);
+        --sz-circle: rgba(27, 58, 107, 0.06);
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        height: 100%;
+        margin: 0;
+        font-family: "72", "72full", Arial, Helvetica, sans-serif;
+        color: var(--sz-fg);
+        background: var(--sz-bg);
+        overflow: hidden;
+      }
+      .sz-stage {
+        position: relative;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      /* decorative background circles */
+      .sz-bg span {
+        position: absolute;
+        border-radius: 50%;
+        background: var(--sz-circle);
+        pointer-events: none;
+      }
+      .sz-bg .c1 { width: 520px; height: 520px; top: -120px; left: 50%; transform: translateX(-50%); opacity: 0.55; }
+      .sz-bg .c2 { width: 260px; height: 260px; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.6; }
+      .sz-bg .c3 { width: 140px; height: 140px; bottom: 12%; left: 8%; opacity: 0.7; }
+      .sz-bg .c4 { width: 90px;  height: 90px;  top: 18%; left: 14%; opacity: 0.7; }
+      .sz-bg .c5 { width: 60px;  height: 60px;  bottom: 18%; right: 12%; opacity: 0.7; }
+      .sz-bg .plus {
+        position: absolute;
+        color: rgba(27, 58, 107, 0.25);
+        font-weight: 300;
+        font-size: 22px;
+        user-select: none;
+      }
+
+      .sz-card {
+        position: relative;
+        z-index: 2;
+        background: var(--sz-card);
+        border-radius: 16px;
+        box-shadow: var(--sz-shadow);
+        padding: 3rem 3.5rem;
+        max-width: 480px;
+        width: 100%;
+        text-align: center;
+      }
+      .sz-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.25rem;
+        border-radius: 50%;
+        background: rgba(0, 112, 242, 0.10);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--sz-primary);
+      }
+      .sz-icon svg { width: 32px; height: 32px; }
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem;
+        letter-spacing: -0.01em;
+      }
+      p.sz-sub {
+        margin: 0 0 1.75rem;
+        color: var(--sz-muted);
+        font-size: 0.95rem;
+      }
+      .sz-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.6rem;
+        border-radius: 999px;
+        background: var(--sz-primary);
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: 0;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+      .sz-btn:hover  { background: var(--sz-primary-hover); }
+      .sz-btn:active { transform: translateY(1px); }
+      .sz-foot {
+        margin-top: 1.5rem;
+        font-size: 0.78rem;
+        color: var(--sz-muted);
+      }
+
+      @media (max-width: 480px) {
+        .sz-card { padding: 2rem 1.5rem; }
+        h1 { font-size: 1.4rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sz-stage">
+      <div class="sz-bg" aria-hidden="true">
+        <span class="c1"></span>
+        <span class="c2"></span>
+        <span class="c3"></span>
+        <span class="c4"></span>
+        <span class="c5"></span>
+        <span class="plus" style="top: 22%; right: 22%;">+</span>
+        <span class="plus" style="bottom: 28%; left: 22%;">+</span>
+        <span class="plus" style="top: 12%; left: 38%;">+</span>
+        <span class="plus" style="bottom: 14%; right: 32%;">+</span>
+      </div>
+
+      <main class="sz-card" role="main">
+        <div class="sz-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 17l5-5-5-5"/>
+            <path d="M21 12H9"/>
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          </svg>
+        </div>
+        <h1>Session Ended</h1>
+        <p class="sz-sub">Your session has timed out. Please log on again to continue.</p>
+        <a class="sz-btn" href="/" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          Log On
+        </a>
+        <div class="sz-foot">Syzygy Launchpad</div>
+      </main>
+    </div>
+  </body>
+</html>

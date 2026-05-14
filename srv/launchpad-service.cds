@@ -34,4 +34,7 @@ service LaunchpadService @(path: '/odata/v4/launchpad') {
   }
 
   function currentUser() returns CurrentUser;
+
+  // Saves/updates the display name for the currently logged-in user.
+  action updateUserProfile(firstname: String, lastname: String) returns CurrentUser;
 }

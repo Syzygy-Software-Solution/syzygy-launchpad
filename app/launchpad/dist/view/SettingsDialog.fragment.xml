@@ -1,0 +1,147 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:lform="sap.ui.layout.form">
+
+  <Dialog
+    id="settingsDialog"
+    title="Settings"
+    contentWidth="880px"
+    contentHeight="560px"
+    draggable="true"
+    resizable="false"
+    verticalScrolling="false"
+    horizontalScrolling="false"
+    class="szSettingsDialog">
+
+    <content>
+      <HBox height="100%" renderType="Bare" class="szSettingsSplit">
+
+        <!-- ─── Left navigation panel ─── -->
+        <VBox class="szSettingsNav">
+          <List mode="None" showSeparators="None" class="szSettingsNavList">
+
+            <StandardListItem
+              icon="sap-icon://account"
+              title="User Account"
+              description="{ui>/user/name}"
+              selected="{= ${ui>/settings/section} === 'userAccount'}"
+              type="Active"
+              press=".onSettingsSectionPress">
+              <customData><core:CustomData key="section" value="userAccount"/></customData>
+            </StandardListItem>
+
+            <StandardListItem
+              icon="sap-icon://palette"
+              title="Appearance"
+              description="Theme &amp; display"
+              selected="{= ${ui>/settings/section} === 'appearance'}"
+              type="Active"
+              press=".onSettingsSectionPress">
+              <customData><core:CustomData key="section" value="appearance"/></customData>
+            </StandardListItem>
+
+            <StandardListItem
+              icon="sap-icon://home"
+              title="Home Screen"
+              description="Manage home cards"
+              selected="{= ${ui>/settings/section} === 'homeScreen'}"
+              type="Active"
+              press=".onSettingsSectionPress">
+              <customData><core:CustomData key="section" value="homeScreen"/></customData>
+            </StandardListItem>
+
+          </List>
+        </VBox>
+
+        <!-- ─── Right content panel ─── -->
+        <VBox class="szSettingsContent">
+
+          <!-- ══ User Account ══ -->
+          <VBox visible="{= ${ui>/settings/section} === 'userAccount'}" class="szSettingsSection">
+            <Title text="{ui>/user/name}" level="H2" class="sapUiSmallMarginBottom"/>
+            <HBox class="sapUiTinyMarginBottom"><core:HTML content="&lt;hr class='szSettingsDivider'/&gt;"/></HBox>
+
+            <lform:SimpleForm
+              editable="true"
+              layout="ResponsiveGridLayout"
+              labelSpanXL="3" labelSpanL="3" labelSpanM="4" labelSpanS="12"
+              adjustLabelSpan="false"
+              class="sapUiNoMargin">
+              <lform:content>
+                <Label text="E-Mail"/>
+                <Input value="{ui>/user/email}" editable="false" width="100%"/>
+                <Label text="First Name"/>
+                <Input
+                  value="{ui>/settings/firstname}"
+                  placeholder="Enter first name"
+                  width="100%"/>
+                <Label text="Last Name"/>
+                <Input
+                  value="{ui>/settings/lastname}"
+                  placeholder="Enter last name"
+                  width="100%"/>
+              </lform:content>
+            </lform:SimpleForm>
+
+            <HBox class="sapUiSmallMarginTop">
+              <Button
+                text="Save"
+                type="Emphasized"
+                press=".onSaveUserProfile"/>
+            </HBox>
+          </VBox>
+
+          <!-- ══ Appearance ══ -->
+          <VBox visible="{= ${ui>/settings/section} === 'appearance'}" class="szSettingsSection">
+            <Title text="Appearance" level="H2" class="sapUiSmallMarginBottom"/>
+            <HBox class="sapUiTinyMarginBottom"><core:HTML content="&lt;hr class='szSettingsDivider'/&gt;"/></HBox>
+
+            <Title text="Theme" level="H5" class="sapUiTinyMarginBottom"/>
+            <Text
+              text="Choose the visual appearance of the launchpad."
+              class="sapUiTinyMarginBottom szSettingsSectionDesc"/>
+
+            <List
+              mode="SingleSelectLeft"
+              showSeparators="None"
+              selectionChange=".onThemeSelectionChange"
+              class="szThemeList sapUiSmallMarginTop">
+              <StandardListItem
+                icon="sap-icon://light-mode"
+                title="Light"
+                description="Horizon Light — Default SAP Fiori theme"
+                selected="{= ${ui>/theme} === 'sap_horizon'}"/>
+              <StandardListItem
+                icon="sap-icon://dark-mode"
+                title="Dark"
+                description="Horizon Dark — Easier on the eyes in low-light environments"
+                selected="{= ${ui>/theme} === 'sap_horizon_dark'}"/>
+            </List>
+          </VBox>
+
+          <!-- ══ Home Screen ══ -->
+          <VBox visible="{= ${ui>/settings/section} === 'homeScreen'}" class="szSettingsSection">
+            <Title text="Home Screen" level="H2" class="sapUiSmallMarginBottom"/>
+            <HBox class="sapUiTinyMarginBottom"><core:HTML content="&lt;hr class='szSettingsDivider'/&gt;"/></HBox>
+
+            <Text
+              text="Select the cards and tools you would like to be displayed on your home screen."
+              class="sapUiSmallMarginBottom szSettingsSectionDesc"/>
+
+            <IllustratedMessage
+              illustrationType="NoEntries"
+              title="Coming Soon"
+              description="Home screen customisation is currently in development. You'll be able to personalise your dashboard cards here shortly."
+              class="sapUiMediumMarginTop"/>
+          </VBox>
+
+        </VBox>
+      </HBox>
+    </content>
+
+    <endButton>
+      <Button text="Close" press=".onCloseSettings"/>
+    </endButton>
+  </Dialog>
+</core:FragmentDefinition>
