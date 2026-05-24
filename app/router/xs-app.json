@@ -16,6 +16,13 @@
       "csrfProtection": false
     },
     {
+      "source": "^/masterdata/(.*)$",
+      "target": "/odata/v4/master-data/$1",
+      "destination": "syzygy-masterdata",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
       "source": "^/syzygylaunchpad/logout.html$",
       "target": "/syzygylaunchpad/logout.html",
       "service": "html5-apps-repo-rt",

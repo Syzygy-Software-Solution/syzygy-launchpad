@@ -9,6 +9,11 @@ sap.ui.define([
   "use strict";
 
   const SERVICE_BASE = "/odata/v4/launchpad";
+  const MASTERDATA_BASE = "/masterdata";
+  const AUDIT_TENANT_ID = "G325";
+  const AUDIT_APPLICATION = "Syzygy Launchpad";
+  const AUDIT_MODULE = "Authentication";
+  const AUDIT_SOURCE = "Launchpad";
   const THEME_KEY    = "syzygyLaunchpadTheme";
 
   // ---- idle-timeout (mirrors approuter sessionTimeout) ----
@@ -21,12 +26,15 @@ sap.ui.define([
 
     onInit: function () {
       this._uiModel = this.getOwnerComponent().getModel("ui");
+      this._auditLogoutFired = false;
       this._loadCurrentUser();
       this._startIdleTimer();
+      this._installUnloadLogout();
     },
 
     onExit: function () {
       this._clearIdleTimer();
+      this._uninstallUnloadLogout();
     },
 
     /* ---------- idle-session timeout ---------- */
@@ -42,9 +50,10 @@ sap.ui.define([
     _resetIdleTimer: function () {
       if (this._idleTimerId) clearTimeout(this._idleTimerId);
       this._idleTimerId = setTimeout(() => {
-        // Session has timed out on the client side — redirect through the
-        // approuter logout endpoint so the server session is also cleared,
-        // and the user lands on the custom logout page.
+        // Session has timed out on the client side — log the event, then
+        // redirect through the approuter logout endpoint so the server
+        // session is also cleared, and the user lands on the custom logout page.
+        this._logLogout("IdleTimeout");
         window.location.href = "/do/logout";
       }, IDLE_TIMEOUT_MS);
     },
@@ -70,10 +79,103 @@ sap.ui.define([
         this._uiModel.setProperty("/user/email",     u.email || "");
         this._uiModel.setProperty("/user/firstname", first);
         this._uiModel.setProperty("/user/lastname",  last);
+        this._uiModel.setProperty("/user/id",        u.id || "");
         // Pre-populate the settings form
         this._uiModel.setProperty("/settings/firstname", first);
         this._uiModel.setProperty("/settings/lastname",  last);
+        // Cache for audit logging and emit the LOGIN event
+        this._auditUserId   = u.id || u.email || "";
+        this._auditUserName = full;
+        this._logLogin();
       } catch (e) { /* keep defaults */ }
+    },
+
+    /* ---------- audit logging (login / logout) ---------- */
+
+    _buildAuditEntry: function (extras) {
+      return Object.assign({
+        TENANT_ID:       AUDIT_TENANT_ID,
+        EVENT_TIMESTAMP: new Date().toISOString(),
+        USER_ID:         this._auditUserId   || "",
+        USER_NAME:       this._auditUserName || "",
+        SOURCE:          AUDIT_SOURCE,
+        APPLICATION:     AUDIT_APPLICATION,
+        MODULE:          AUDIT_MODULE,
+        STATUS:          "Success"
+      }, extras || {});
+    },
+
+    _postAuditLog: async function (entry, bKeepalive) {
+      try {
+        // CAP requires a CSRF token for browser-initiated POST requests.
+        // Fetch the token first via a HEAD request, then include it in the POST.
+        let csrfToken = "";
+        try {
+          const tokenRes = await fetch(`${MASTERDATA_BASE}/`, {
+            method:  "HEAD",
+            headers: { "X-Csrf-Token": "Fetch" }
+          });
+          csrfToken = tokenRes.headers.get("X-Csrf-Token") || "";
+        } catch (e) { /* proceed without token if HEAD fails */ }
+
+        return fetch(`${MASTERDATA_BASE}/createAuditLogs`, {
+          method:    "POST",
+          headers:   {
+            "Content-Type": "application/json",
+            "Accept":       "application/json",
+            "X-Csrf-Token": csrfToken
+          },
+          body:      JSON.stringify({ items: [entry] }),
+          keepalive: !!bKeepalive
+        });
+      } catch (e) {
+        // never break the UI for a logging failure
+        return Promise.resolve();
+      }
+    },
+
+    _logLogin: function () {
+      if (!this._auditUserId) return;
+      this._postAuditLog(this._buildAuditEntry({
+        ACTION_TYPE: "LOGIN",
+        ENTITY_NAME: "Login",
+        ENTITY_TYPE: "login",
+        DESCRIPTION: "User signed in to the launchpad"
+      }), false);
+    },
+
+    _logLogout: function (sReason) {
+      // Guard against duplicate emissions when multiple code paths converge
+      // (e.g. user clicks Sign Out → beforeunload also fires).
+      if (this._auditLogoutFired) return;
+      this._auditLogoutFired = true;
+      if (!this._auditUserId) return;
+      const reason = sReason || "Success";
+      const description =
+        reason === "IdleTimeout" ? "Session timed out due to inactivity" :
+        reason === "BrowserClose" ? "User closed the browser or tab" :
+        "User signed out of the launchpad";
+      this._postAuditLog(this._buildAuditEntry({
+        ACTION_TYPE: "LOGOUT",
+        ENTITY_NAME: "Logout",
+        ENTITY_TYPE: "logout",
+        STATUS:      reason,
+        DESCRIPTION: description
+      }), true);
+    },
+
+    _installUnloadLogout: function () {
+      // Best-effort logout log on browser/tab close. Uses fetch keepalive so
+      // the POST survives the page navigation.
+      this._unloadLogoutHandler = () => this._logLogout("BrowserClose");
+      window.addEventListener("beforeunload", this._unloadLogoutHandler);
+    },
+
+    _uninstallUnloadLogout: function () {
+      if (this._unloadLogoutHandler) {
+        window.removeEventListener("beforeunload", this._unloadLogoutHandler);
+        this._unloadLogoutHandler = null;
+      }
     },
 
     /* ---------- shell bar ---------- */
@@ -160,8 +262,9 @@ sap.ui.define([
 
     onUserMenuSignOut: function () {
       if (this._userPopover) this._userPopover.close();
-      // Hand off to the approuter, which terminates the XSUAA session and
-      // redirects the browser to the configured logoutPage.
+      // Log the logout, then hand off to the approuter, which terminates
+      // the XSUAA session and redirects the browser to the configured logoutPage.
+      this._logLogout("Success");
       window.location.href = "/do/logout";
     },
 

@@ -50,6 +50,7 @@ modules:
     requires:
       - name: syzygy-launchpad-auth
       - name: syzygy-launchpad-html5-runtime
+      - name: syzygy-launchpad-destination-service
       - name: srv-api
         group: destinations
         properties:
@@ -118,3 +119,11 @@ resources:
     parameters:
       service: html5-apps-repo
       service-plan: app-runtime
+
+  # Destination service — lets the approuter resolve subaccount-level
+  # destinations (e.g. `syzygy-masterdata`) at runtime.
+  - name: syzygy-launchpad-destination-service
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite

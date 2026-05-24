@@ -481,9 +481,20 @@
                     <Button text="Export" icon="sap-icon://excel-attachment" type="Default" press=".onAuditExport" class="sapUiTinyMarginEnd"/>
                     <Button text="Columns" icon="sap-icon://action-settings" type="Default" press=".onAuditColumns"/>
                   </HBox>
-                  <Table id="auditLogsTable" fixedLayout="false" noDataText="" class="szAuditTable">
+                  <Table
+                    id="auditLogsTable"
+                    fixedLayout="false"
+                    growing="true"
+                    growingThreshold="100"
+                    growingScrollToLoad="false"
+                    class="szAuditTable"
+                    items="{
+                      path: 'masterdata>/AuditLogs',
+                      sorter: { path: 'EVENT_TIMESTAMP', descending: true },
+                      parameters: { '$count': true }
+                    }">
                     <columns>
-                      <Column width="150px" hAlign="Begin"><Text text="Date &amp; Time"/></Column>
+                      <Column width="170px" hAlign="Begin"><Text text="Date &amp; Time"/></Column>
                       <Column width="170px" hAlign="Begin"><Text text="Application"/></Column>
                       <Column width="140px" hAlign="Begin"><Text text="Module"/></Column>
                       <Column width="160px" hAlign="Begin"><Text text="Entity Name"/></Column>
@@ -492,10 +503,30 @@
                       <Column width="130px" hAlign="Begin"><Text text="Field Name"/></Column>
                       <Column width="150px" hAlign="Begin"><Text text="Old Value"/></Column>
                       <Column width="150px" hAlign="Begin"><Text text="New Value"/></Column>
-                      <Column width="140px" hAlign="Begin"><Text text="User"/></Column>
-                      <Column width="100px" hAlign="Begin"><Text text="Status"/></Column>
-                      <Column width="100px" hAlign="Begin"><Text text="Source"/></Column>
+                      <Column width="160px" hAlign="Begin"><Text text="User"/></Column>
+                      <Column width="110px" hAlign="Begin"><Text text="Status"/></Column>
+                      <Column width="110px" hAlign="Begin"><Text text="Source"/></Column>
                     </columns>
+                    <ColumnListItem>
+                      <cells>
+                        <Text text="{
+                          path: 'masterdata>EVENT_TIMESTAMP',
+                          type: 'sap.ui.model.odata.type.DateTimeOffset',
+                          formatOptions: { style: 'medium' }
+                        }"/>
+                        <Text text="{masterdata>APPLICATION}"/>
+                        <Text text="{masterdata>MODULE}"/>
+                        <Text text="{masterdata>ENTITY_NAME}"/>
+                        <Text text="{masterdata>ENTITY_ID}"/>
+                        <Text text="{masterdata>ACTION_TYPE}"/>
+                        <Text text="{masterdata>FIELD_NAME}"/>
+                        <Text text="{masterdata>OLD_VALUE}"/>
+                        <Text text="{masterdata>NEW_VALUE}"/>
+                        <Text text="{masterdata>USER_NAME}"/>
+                        <Text text="{masterdata>STATUS}"/>
+                        <Text text="{masterdata>SOURCE}"/>
+                      </cells>
+                    </ColumnListItem>
                   </Table>
                 </VBox>
               </f:content>

@@ -14,6 +14,13 @@
         "settings": {
           "odataVersion": "4.0"
         }
+      },
+      "masterDataService": {
+        "uri": "/master-data/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
       }
     }
   },
@@ -45,6 +52,15 @@
       },
       "": {
         "dataSource": "launchpadService",
+        "settings": {
+          "synchronizationMode": "None",
+          "operationMode": "Server",
+          "autoExpandSelect": true
+        }
+      },
+      "masterdata": {
+        "type": "sap.ui.model.odata.v4.ODataModel",
+        "dataSource": "masterDataService",
         "settings": {
           "synchronizationMode": "None",
           "operationMode": "Server",
