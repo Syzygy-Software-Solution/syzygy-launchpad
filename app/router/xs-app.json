@@ -16,7 +16,7 @@
       "csrfProtection": false
     },
     {
-      "source": "^/masterdata/(.*)$",
+      "source": "^/api/masterdata/(.*)$",
       "target": "/odata/v4/master-data/$1",
       "destination": "syzygy-masterdata",
       "authenticationType": "xsuaa",

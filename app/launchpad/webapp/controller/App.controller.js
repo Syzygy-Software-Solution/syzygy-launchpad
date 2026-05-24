@@ -9,7 +9,12 @@ sap.ui.define([
   "use strict";
 
   const SERVICE_BASE = "/odata/v4/launchpad";
-  const MASTERDATA_BASE = "/masterdata";
+  // Absolute, origin-rooted path to the master-data service via the approuter
+  // (see ^/api/masterdata/(.*)$ route in app/router/xs-app.json). We deliberately
+  // use the /api/ prefix to avoid collision with the html5-apps-repo app named
+  // `masterdata` from the master_data project — a bare /masterdata/ would be
+  // served by html5-apps-repo runtime instead of being proxied to the CAP service.
+  const MASTERDATA_BASE = "/api/masterdata/";
   const AUDIT_TENANT_ID = "G325";
   const AUDIT_APPLICATION = "Syzygy Launchpad";
   const AUDIT_MODULE = "Authentication";
@@ -105,28 +110,42 @@ sap.ui.define([
       }, extras || {});
     },
 
+    _fetchCsrfToken: async function () {
+      // Cache the token for the lifetime of the controller — CAP/XSUAA sessions
+      // last well beyond a single login/logout pair.
+      if (this._csrfToken) return this._csrfToken;
+      try {
+        // Use the origin-rooted absolute URL so the browser sends the request
+        // to the approuter root (not the html5-apps-repo app path).
+        const res = await fetch(window.location.origin + MASTERDATA_BASE, {
+          method:      "GET",
+          headers:     { "X-CSRF-Token": "Fetch", "Accept": "application/json" },
+          credentials: "include"
+        });
+        // Header name is case-insensitive; fetch() normalises it.
+        const tok = res.headers.get("x-csrf-token");
+        if (tok && tok.toLowerCase() !== "required") this._csrfToken = tok;
+      } catch (e) { /* swallow — POST will surface the real error */ }
+      return this._csrfToken;
+    },
+
     _postAuditLog: async function (entry, bKeepalive) {
       try {
-        // CAP requires a CSRF token for browser-initiated POST requests.
-        // Fetch the token first via a HEAD request, then include it in the POST.
-        let csrfToken = "";
-        try {
-          const tokenRes = await fetch(`${MASTERDATA_BASE}/`, {
-            method:  "HEAD",
-            headers: { "X-Csrf-Token": "Fetch" }
-          });
-          csrfToken = tokenRes.headers.get("X-Csrf-Token") || "";
-        } catch (e) { /* proceed without token if HEAD fails */ }
+        // CAP enforces CSRF on session-bearing browser POSTs. Fetch a real
+        // token first; only attach the header if we actually got one back.
+        const csrfToken = await this._fetchCsrfToken();
+        const headers = {
+          "Content-Type": "application/json",
+          "Accept":       "application/json"
+        };
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
-        return fetch(`${MASTERDATA_BASE}/createAuditLogs`, {
-          method:    "POST",
-          headers:   {
-            "Content-Type": "application/json",
-            "Accept":       "application/json",
-            "X-Csrf-Token": csrfToken
-          },
-          body:      JSON.stringify({ items: [entry] }),
-          keepalive: !!bKeepalive
+        return fetch(window.location.origin + MASTERDATA_BASE + "createAuditLogs", {
+          method:      "POST",
+          headers:     headers,
+          body:        JSON.stringify({ items: [entry] }),
+          credentials: "include",
+          keepalive:   !!bKeepalive
         });
       } catch (e) {
         // never break the UI for a logging failure

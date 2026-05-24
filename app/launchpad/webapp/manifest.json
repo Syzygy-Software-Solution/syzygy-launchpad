@@ -16,7 +16,7 @@
         }
       },
       "masterDataService": {
-        "uri": "/master-data/",
+        "uri": "/api/masterdata/",
         "type": "OData",
         "settings": {
           "odataVersion": "4.0"
