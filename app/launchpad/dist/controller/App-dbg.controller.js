@@ -32,6 +32,7 @@ sap.ui.define([
     onInit: function () {
       this._uiModel = this.getOwnerComponent().getModel("ui");
       this._auditLogoutFired = false;
+      this._initAuditDefaults();
       this._loadCurrentUser();
       this._startIdleTimer();
       this._installUnloadLogout();
@@ -352,11 +353,18 @@ sap.ui.define([
 
     onNavItemSelect: function () { /* per-item handlers fire */ },
 
+    _collapseSideNav: function () {
+      // Always collapse the side panel after navigating to any item so the
+      // user gets maximum content area for the selected app/page.
+      this._uiModel.setProperty("/sideExpanded", false);
+    },
+
     onSelectHome: function () {
       this._uiModel.setProperty("/currentAppId", null);
       this._uiModel.setProperty("/currentAppUrl", null);
       this._uiModel.setProperty("/selectedNavKey", "home");
       this.byId("mainNav").to(this.byId("homePage"));
+      this._collapseSideNav();
     },
 
     onSelectAuditLogs: function () {
@@ -364,6 +372,12 @@ sap.ui.define([
       this._uiModel.setProperty("/currentAppUrl", null);
       this._uiModel.setProperty("/selectedNavKey", "auditLogs");
       this.byId("mainNav").to(this.byId("auditLogsPage"));
+      this._collapseSideNav();
+      // Auto-load the first page (today's logs) the first time the user
+      // opens the page in this session.
+      if (!this._uiModel.getProperty("/audit/hasFirstSearch")) {
+        this._fetchAuditData(1);
+      }
     },
 
     onSelectAdmin: function () {
@@ -371,6 +385,7 @@ sap.ui.define([
       this._uiModel.setProperty("/currentAppUrl", null);
       this._uiModel.setProperty("/selectedNavKey", "administration");
       this.byId("mainNav").to(this.byId("adminPage"));
+      this._collapseSideNav();
     },
 
     onSelectApp: async function (oEvent) {
@@ -391,23 +406,209 @@ sap.ui.define([
       this._uiModel.setProperty("/currentAppUrl", url);
       this._uiModel.setProperty("/selectedNavKey", app.appId);
       this.byId("mainNav").to(this.byId("appPage"));
+      this._collapseSideNav();
       this._loadAppIntoFrame(url, this._uiModel.getProperty("/theme"));
     },
 
     /* ---------- audit logs ---------- */
 
+    _initAuditDefaults: function () {
+      // Default the date range to "today" so the page always shows the
+      // current day's audit trail on first open.
+      const today = new Date();
+      const from = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+      const to   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+      this._uiModel.setProperty("/audit/dateFrom", from);
+      this._uiModel.setProperty("/audit/dateTo",   to);
+    },
+
+    formatAuditTimestamp: function (sIso) {
+      if (!sIso) return "";
+      // Tolerate both Date objects and ISO strings from CAP/OData v4.
+      const d = (sIso instanceof Date) ? sIso : new Date(sIso);
+      if (isNaN(d.getTime())) return String(sIso);
+      // Locale-aware, short numeric format with seconds.
+      const datePart = d.toLocaleDateString(undefined, {
+        year: "numeric", month: "short", day: "2-digit"
+      });
+      const timePart = d.toLocaleTimeString(undefined, {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+      return `${datePart}, ${timePart}`;
+    },
+
+    _validateAuditRange: function () {
+      const from = this._uiModel.getProperty("/audit/dateFrom");
+      const to   = this._uiModel.getProperty("/audit/dateTo");
+      if (!from || !to) {
+        MessageBox.warning("Please choose a date range to load audit records. Date range is mandatory.");
+        return null;
+      }
+      if (to < from) {
+        MessageBox.warning("End date cannot be before the start date.");
+        return null;
+      }
+      // 6 months max — count using calendar months for accuracy.
+      const maxTo = new Date(from);
+      maxTo.setMonth(maxTo.getMonth() + 6);
+      if (to > maxTo) {
+        MessageBox.warning("Date range cannot exceed 6 months. Please narrow your selection.");
+        return null;
+      }
+      // Normalise to day boundaries so the filter is inclusive of full days.
+      const fromDay = new Date(from.getFullYear(), from.getMonth(), from.getDate(), 0, 0, 0, 0);
+      const toDay   = new Date(to.getFullYear(),   to.getMonth(),   to.getDate(),   23, 59, 59, 999);
+      return { from: fromDay, to: toDay };
+    },
+
+    _buildAuditFilter: function (range, extraFilter) {
+      const parts = [];
+      parts.push(`EVENT_TIMESTAMP ge ${range.from.toISOString()}`);
+      parts.push(`EVENT_TIMESTAMP le ${range.to.toISOString()}`);
+      // Optional UI filters
+      const app    = this._uiModel.getProperty("/audit/appFilter");
+      const mod    = this._uiModel.getProperty("/audit/moduleFilter");
+      const action = this._uiModel.getProperty("/audit/actionTypeFilter");
+      const user   = this._uiModel.getProperty("/audit/userFilter");
+      const entity = (this._uiModel.getProperty("/audit/entityFilter") || "").trim();
+      if (app)    parts.push(`APPLICATION eq '${app.replace(/'/g, "''")}'`);
+      if (mod)    parts.push(`MODULE eq '${mod.replace(/'/g, "''")}'`);
+      if (action) parts.push(`ACTION_TYPE eq '${action.replace(/'/g, "''")}'`);
+      if (user)   parts.push(`USER_ID eq '${user.replace(/'/g, "''")}'`);
+      if (entity) {
+        const q = entity.replace(/'/g, "''");
+        parts.push(`(contains(ENTITY_NAME,'${q}') or contains(ENTITY_ID,'${q}'))`);
+      }
+      if (extraFilter) parts.push(`(${extraFilter})`);
+      return parts.join(" and ");
+    },
+
+    _fetchAuditCount: async function (filter) {
+      try {
+        const url = `${MASTERDATA_BASE}AuditLogs/$count?$filter=${encodeURIComponent(filter)}`;
+        const res = await fetch(window.location.origin + url, {
+          headers: { Accept: "text/plain" },
+          credentials: "include"
+        });
+        if (!res.ok) return 0;
+        const txt = (await res.text()).trim();
+        const n = parseInt(txt, 10);
+        return isNaN(n) ? 0 : n;
+      } catch (e) { return 0; }
+    },
+
+    _fetchAuditData: async function (page) {
+      const range = this._validateAuditRange();
+      if (!range) return;
+
+      this._uiModel.setProperty("/audit/busy", true);
+      try {
+        const baseFilter = this._buildAuditFilter(range);
+
+        // Category filters (excluding the date range that is already baked in)
+        // Data changes: real CRUD on business data — exclude Authentication module
+        const dataFilter   = `${baseFilter} and ACTION_TYPE in ('CREATE','UPDATE','DELETE') and MODULE ne 'Authentication'`;
+        const statusFilter = `${baseFilter} and ACTION_TYPE eq 'STATUS_CHANGE'`;
+        const userFilter   = `${baseFilter} and (ACTION_TYPE eq 'LOGIN' or ACTION_TYPE eq 'LOGOUT')`;
+        const failFilter   = `${baseFilter} and STATUS ne 'Success'`;
+
+        const pageSize = this._uiModel.getProperty("/audit/pageSize") || 100;
+        const safePage = Math.max(1, parseInt(page, 10) || 1);
+        const skip = (safePage - 1) * pageSize;
+
+        const itemsUrl =
+          `${MASTERDATA_BASE}AuditLogs` +
+          `?$filter=${encodeURIComponent(baseFilter)}` +
+          `&$orderby=EVENT_TIMESTAMP desc` +
+          `&$top=${pageSize}&$skip=${skip}&$count=true`;
+
+        const itemsPromise = fetch(window.location.origin + itemsUrl, {
+          headers: { Accept: "application/json" },
+          credentials: "include"
+        }).then(r => r.ok ? r.json() : { value: [], "@odata.count": 0 });
+
+        const [total, dataChanges, statusChanges, userActions, failedActions, itemsResp] = await Promise.all([
+          this._fetchAuditCount(baseFilter),
+          this._fetchAuditCount(dataFilter),
+          this._fetchAuditCount(statusFilter),
+          this._fetchAuditCount(userFilter),
+          this._fetchAuditCount(failFilter),
+          itemsPromise
+        ]);
+
+        const pct = (n) => total > 0 ? `${((n / total) * 100).toFixed(1)}% of total` : "0% of total";
+
+        this._uiModel.setProperty("/audit/kpis", {
+          total:            this._formatNumber(total),
+          dataChanges:      this._formatNumber(dataChanges),
+          statusChanges:    this._formatNumber(statusChanges),
+          userActions:      this._formatNumber(userActions),
+          failedActions:    this._formatNumber(failedActions),
+          totalSub:         "Selected period",
+          dataChangesSub:   pct(dataChanges),
+          statusChangesSub: pct(statusChanges),
+          userActionsSub:   pct(userActions),
+          failedActionsSub: pct(failedActions)
+        });
+
+        const items = (itemsResp.value || []).map(r => ({
+          EVENT_TIMESTAMP: r.EVENT_TIMESTAMP,
+          APPLICATION:     r.APPLICATION || "",
+          MODULE:          r.MODULE || "",
+          ENTITY_NAME:     r.ENTITY_NAME || "",
+          ENTITY_ID:       r.ENTITY_ID || "",
+          ACTION_TYPE:     r.ACTION_TYPE || "",
+          FIELD_NAME:      r.FIELD_NAME || "",
+          USER_NAME:       r.USER_NAME || r.USER_ID || "",
+          STATUS:          r.STATUS || ""
+        }));
+
+        const totalRows = typeof itemsResp["@odata.count"] === "number" ? itemsResp["@odata.count"] : total;
+        const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+        const currentPage = Math.min(safePage, totalPages);
+
+        this._uiModel.setProperty("/audit/items", items);
+        this._uiModel.setProperty("/audit/page", currentPage);
+        this._uiModel.setProperty("/audit/pageInput", String(currentPage));
+        this._uiModel.setProperty("/audit/totalCount", totalRows);
+        this._uiModel.setProperty("/audit/totalPages", totalPages);
+        this._uiModel.setProperty("/audit/hasFirstSearch", true);
+      } catch (err) {
+        MessageBox.error("Could not load audit logs.\n" + (err && err.message ? err.message : err));
+      } finally {
+        this._uiModel.setProperty("/audit/busy", false);
+      }
+    },
+
+    _formatNumber: function (n) {
+      try { return (n || 0).toLocaleString(); } catch (e) { return String(n || 0); }
+    },
+
+    onAuditDateRangeChange: function () {
+      // Live re-fetch when the user changes the date range — but only if
+      // both ends are set; bail silently otherwise (validation happens on
+      // explicit Search and during the fetch itself).
+      const from = this._uiModel.getProperty("/audit/dateFrom");
+      const to   = this._uiModel.getProperty("/audit/dateTo");
+      if (!from || !to) {
+        MessageBox.warning("Please choose a date range to load audit records. Date range is mandatory.");
+        return;
+      }
+      this._fetchAuditData(1);
+    },
+
     onAuditSearch: function () {
-      MessageToast.show("Search functionality coming soon.");
+      this._fetchAuditData(1);
     },
 
     onAuditReset: function () {
-      var oView = this.getView();
-      oView.byId("auditFilterDateRange").setValue("");
-      oView.byId("auditFilterApp").setSelectedKey("");
-      oView.byId("auditFilterModule").setSelectedKey("");
-      oView.byId("auditFilterActionType").setSelectedKey("");
-      oView.byId("auditFilterUser").setSelectedKey("");
-      oView.byId("auditFilterEntity").setValue("");
+      this._uiModel.setProperty("/audit/appFilter", "");
+      this._uiModel.setProperty("/audit/moduleFilter", "");
+      this._uiModel.setProperty("/audit/actionTypeFilter", "");
+      this._uiModel.setProperty("/audit/userFilter", "");
+      this._uiModel.setProperty("/audit/entityFilter", "");
+      this._initAuditDefaults();
+      this._fetchAuditData(1);
       MessageToast.show("Filters reset.");
     },
 
@@ -417,6 +618,30 @@ sap.ui.define([
 
     onAuditColumns: function () {
       MessageToast.show("Column configuration coming soon.");
+    },
+
+    /* ---- pagination ---- */
+
+    onAuditPageFirst: function () { this._gotoPage(1); },
+    onAuditPagePrev:  function () { this._gotoPage((this._uiModel.getProperty("/audit/page") || 1) - 1); },
+    onAuditPageNext:  function () { this._gotoPage((this._uiModel.getProperty("/audit/page") || 1) + 1); },
+    onAuditPageLast:  function () { this._gotoPage(this._uiModel.getProperty("/audit/totalPages") || 1); },
+    onAuditPageGoto:  function () {
+      const raw = this._uiModel.getProperty("/audit/pageInput");
+      const n = parseInt(raw, 10);
+      if (isNaN(n)) {
+        MessageToast.show("Enter a valid page number.");
+        return;
+      }
+      this._gotoPage(n);
+    },
+
+    _gotoPage: function (page) {
+      const total = this._uiModel.getProperty("/audit/totalPages") || 1;
+      const cur   = this._uiModel.getProperty("/audit/page") || 1;
+      const next  = Math.max(1, Math.min(total, page));
+      if (next === cur) return;
+      this._fetchAuditData(next);
     },
 
     /* ---------- iframe injection ---------- */

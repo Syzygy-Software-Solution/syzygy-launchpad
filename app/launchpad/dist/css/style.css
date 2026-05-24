@@ -511,21 +511,48 @@ html[data-sz-theme="sap_horizon_dark"] .szAuditTableCard {
   min-height: 4rem;
 }
 
-/* Table header row: navy background */
-.szAuditTable .sapMListTblHeader {
+/* Table header row: navy background, white text — force across both themes
+   with high-specificity selectors so the theme-default text color doesn't
+   win and leave the column titles invisible (was previously only legible in
+   dark mode). */
+.szAuditTable .sapMListTblHeader,
+.szAuditTable thead .sapMListTblHeader,
+.szAuditTable .sapMListTblHeaderCell {
   background-color: var(--sz-navy) !important;
 }
-.szAuditTable .sapMListTblHeaderCell .sapMText {
+.szAuditTable .sapMListTblHeader .sapMText,
+.szAuditTable .sapMListTblHeader .sapMLabel,
+.szAuditTable .sapMListTblHeader .sapMTitle,
+.szAuditTable .sapMListTblHeaderCell,
+.szAuditTable .sapMListTblHeaderCell *,
+.szAuditTable thead th,
+.szAuditTable thead th * {
   color: #ffffff !important;
-  font-weight: 600;
+  fill: #ffffff !important;
 }
-html[data-sz-theme="sap_horizon_dark"] .szAuditTable .sapMListTblHeader {
+html[data-sz-theme="sap_horizon_dark"] .szAuditTable .sapMListTblHeader,
+html[data-sz-theme="sap_horizon_dark"] .szAuditTable thead .sapMListTblHeader,
+html[data-sz-theme="sap_horizon_dark"] .szAuditTable .sapMListTblHeaderCell {
   background-color: var(--sz-navy-dark) !important;
 }
 
 /* Transparent list background inside cards */
 .szAuditTable.sapMList,
 .szAuditTable .sapMListUl { background: transparent; }
+
+/* Pagination toolbar below the table */
+.szAuditPagerToolbar {
+  background: transparent !important;
+  border-top: 1px solid rgba(15, 37, 74, 0.08);
+  padding: 0.25rem 0.5rem;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAuditPagerToolbar {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+.szAuditPagerText {
+  color: var(--sapContent_LabelColor);
+  font-size: 0.85rem;
+}
 
 /* ======== Administration page ======== */
 

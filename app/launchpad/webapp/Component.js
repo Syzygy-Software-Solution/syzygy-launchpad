@@ -37,7 +37,7 @@ sap.ui.define([
         currentAppUrl: null,
         currentAppTitle: null,
         selectedNavKey: "home",
-        sideExpanded: true,
+        sideExpanded: false,
         frameLoading: false,
         aiPanelOpen: false,
         theme: savedTheme,
@@ -72,6 +72,35 @@ sap.ui.define([
         iconPicker: {
           all: [],
           filtered: []
+        },
+        audit: {
+          dateFrom: null,        // Date object — defaults to today (00:00)
+          dateTo: null,          // Date object — defaults to today (23:59)
+          appFilter: "",
+          moduleFilter: "",
+          actionTypeFilter: "",
+          userFilter: "",
+          entityFilter: "",
+          items: [],             // current page rows
+          page: 1,
+          pageSize: 100,
+          totalCount: 0,
+          totalPages: 1,
+          pageInput: "1",
+          busy: false,
+          hasFirstSearch: false, // becomes true after the first successful fetch
+          kpis: {
+            total:        "0",
+            dataChanges:  "0",
+            statusChanges:"0",
+            userActions:  "0",
+            failedActions:"0",
+            totalSub:        "This period",
+            dataChangesSub:  "0% of total",
+            statusChangesSub:"0% of total",
+            userActionsSub:  "0% of total",
+            failedActionsSub:"0% of total"
+          }
         }
       }), "ui");
     }

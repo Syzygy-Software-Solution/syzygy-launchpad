@@ -322,6 +322,10 @@
                 id="auditHeaderDateRange"
                 displayFormat="dd-MMM-yyyy"
                 placeholder="Select date range"
+                required="true"
+                dateValue="{ui>/audit/dateFrom}"
+                secondDateValue="{ui>/audit/dateTo}"
+                change=".onAuditDateRangeChange"
                 class="szAuditHeaderDate"/>
             </HBox>
 
@@ -330,23 +334,23 @@
 
               <f:Card class="szKpiCard szAuditKpiCard">
                 <f:header>
-                  <card:Header title="Total Audit Records" subtitle="All Applications" iconSrc="sap-icon://document-text"/>
+                  <card:Header title="Total Audit Records" subtitle="{ui>/audit/kpis/totalSub}" iconSrc="sap-icon://document-text"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Title text="25,842" level="H1" class="szKpiValue"/>
-                    <Text text="This period" class="szKpiHint"/>
+                    <Title text="{ui>/audit/kpis/total}" level="H1" class="szKpiValue"/>
+                    <Text text="All audit records" class="szKpiHint"/>
                   </VBox>
                 </f:content>
               </f:Card>
 
               <f:Card class="szKpiCard szAuditKpiCard">
                 <f:header>
-                  <card:Header title="Data Changes" subtitle="71.8% of total" iconSrc="sap-icon://edit"/>
+                  <card:Header title="Data Changes" subtitle="{ui>/audit/kpis/dataChangesSub}" iconSrc="sap-icon://edit"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Title text="18,573" level="H1" class="szKpiValue szKpiSuccess"/>
+                    <Title text="{ui>/audit/kpis/dataChanges}" level="H1" class="szKpiValue szKpiSuccess"/>
                     <Text text="Create / Update / Delete" class="szKpiHint"/>
                   </VBox>
                 </f:content>
@@ -354,11 +358,11 @@
 
               <f:Card class="szKpiCard szAuditKpiCard">
                 <f:header>
-                  <card:Header title="Status Changes" subtitle="16.8% of total" iconSrc="sap-icon://synchronize"/>
+                  <card:Header title="Status Changes" subtitle="{ui>/audit/kpis/statusChangesSub}" iconSrc="sap-icon://synchronize"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Title text="4,356" level="H1" class="szKpiValue szKpiInfo"/>
+                    <Title text="{ui>/audit/kpis/statusChanges}" level="H1" class="szKpiValue szKpiInfo"/>
                     <Text text="Workflow transitions" class="szKpiHint"/>
                   </VBox>
                 </f:content>
@@ -366,11 +370,11 @@
 
               <f:Card class="szKpiCard szAuditKpiCard">
                 <f:header>
-                  <card:Header title="User Actions" subtitle="11.3% of total" iconSrc="sap-icon://employee"/>
+                  <card:Header title="User Actions" subtitle="{ui>/audit/kpis/userActionsSub}" iconSrc="sap-icon://employee"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Title text="2,913" level="H1" class="szKpiValue szKpiWarning"/>
+                    <Title text="{ui>/audit/kpis/userActions}" level="H1" class="szKpiValue szKpiWarning"/>
                     <Text text="Login / access events" class="szKpiHint"/>
                   </VBox>
                 </f:content>
@@ -378,11 +382,11 @@
 
               <f:Card class="szKpiCard szAuditKpiCard">
                 <f:header>
-                  <card:Header title="Failed Actions" subtitle="0.3% of total" iconSrc="sap-icon://warning"/>
+                  <card:Header title="Failed Actions" subtitle="{ui>/audit/kpis/failedActionsSub}" iconSrc="sap-icon://warning"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Title text="87" level="H1" class="szKpiValue szKpiError"/>
+                    <Title text="{ui>/audit/kpis/failedActions}" level="H1" class="szKpiValue szKpiError"/>
                     <Text text="Errors and failures" class="szKpiHint"/>
                   </VBox>
                 </f:content>
@@ -397,20 +401,28 @@
 
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
-                    <Label text="Date Range" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <DateRangeSelection id="auditFilterDateRange" displayFormat="dd-MMM-yyyy" width="100%"/>
+                    <Label text="Date Range *" design="Bold" required="true" class="sapUiTinyMarginBottom"/>
+                    <DateRangeSelection
+                      id="auditFilterDateRange"
+                      displayFormat="dd-MMM-yyyy"
+                      width="100%"
+                      required="true"
+                      dateValue="{ui>/audit/dateFrom}"
+                      secondDateValue="{ui>/audit/dateTo}"
+                      change=".onAuditDateRangeChange"/>
                   </VBox>
 
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
                     <Label text="Application" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <Select id="auditFilterApp" width="100%">
+                    <Select id="auditFilterApp" width="100%" selectedKey="{ui>/audit/appFilter}">
                       <items>
                         <core:Item key="" text="All Applications"/>
-                        <core:Item key="commissions" text="Commissions Accounting"/>
-                        <core:Item key="partnerComm" text="Partner Commissions"/>
-                        <core:Item key="objectives" text="Objective Management"/>
-                        <core:Item key="masterdata" text="Master Data"/>
+                        <core:Item key="Syzygy Launchpad" text="Syzygy Launchpad"/>
+                        <core:Item key="Commissions Accounting" text="Commissions Accounting"/>
+                        <core:Item key="Partner Commissions" text="Partner Commissions"/>
+                        <core:Item key="Objective Management" text="Objective Management"/>
+                        <core:Item key="Master Data" text="Master Data"/>
                       </items>
                     </Select>
                   </VBox>
@@ -418,9 +430,10 @@
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
                     <Label text="Module" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <Select id="auditFilterModule" width="100%">
+                    <Select id="auditFilterModule" width="100%" selectedKey="{ui>/audit/moduleFilter}">
                       <items>
                         <core:Item key="" text="All Modules"/>
+                        <core:Item key="Authentication" text="Authentication"/>
                       </items>
                     </Select>
                   </VBox>
@@ -428,9 +441,11 @@
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
                     <Label text="Action Type" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <Select id="auditFilterActionType" width="100%">
+                    <Select id="auditFilterActionType" width="100%" selectedKey="{ui>/audit/actionTypeFilter}">
                       <items>
                         <core:Item key="" text="All Actions"/>
+                        <core:Item key="LOGIN" text="Login"/>
+                        <core:Item key="LOGOUT" text="Logout"/>
                         <core:Item key="CREATE" text="Create"/>
                         <core:Item key="UPDATE" text="Update"/>
                         <core:Item key="DELETE" text="Delete"/>
@@ -444,7 +459,7 @@
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="140px"/></layoutData>
                     <Label text="User" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <Select id="auditFilterUser" width="100%">
+                    <Select id="auditFilterUser" width="100%" selectedKey="{ui>/audit/userFilter}">
                       <items>
                         <core:Item key="" text="All Users"/>
                       </items>
@@ -454,7 +469,7 @@
                   <VBox>
                     <layoutData><FlexItemData growFactor="1" shrinkFactor="1" baseSize="0px" minWidth="160px"/></layoutData>
                     <Label text="Entity Name / ID" design="Bold" class="sapUiTinyMarginBottom"/>
-                    <Input id="auditFilterEntity" placeholder="Enter Entity Name / ID" width="100%"/>
+                    <Input id="auditFilterEntity" placeholder="Enter Entity Name / ID" width="100%" value="{ui>/audit/entityFilter}"/>
                   </VBox>
 
                   <HBox alignItems="Center" class="szAuditFilterBtns">
@@ -468,66 +483,83 @@
             </f:Card>
 
             <!-- Audit Log table card -->
-            <f:Card class="szAuditTableCard">
+            <f:Card class="szAuditTableCard" busy="{ui>/audit/busy}" busyIndicatorDelay="200">
               <f:header>
                 <card:Header
                   title="Audit Log"
-                  subtitle="Use the filters above and click Search to load records"/>
+                  subtitle="{= 'Showing ' + ${ui>/audit/items}.length + ' of ' + ${ui>/audit/totalCount} + ' records' }"/>
               </f:header>
               <f:content>
                 <VBox>
-                  <!-- Export / Columns toolbar — hidden until data is bound -->
-                  <HBox visible="false" justifyContent="End" class="sapUiTinyMarginBegin sapUiTinyMarginEnd szAuditTableToolbar">
-                    <Button text="Export" icon="sap-icon://excel-attachment" type="Default" press=".onAuditExport" class="sapUiTinyMarginEnd"/>
-                    <Button text="Columns" icon="sap-icon://action-settings" type="Default" press=".onAuditColumns"/>
-                  </HBox>
                   <Table
                     id="auditLogsTable"
                     fixedLayout="false"
-                    growing="true"
-                    growingThreshold="100"
-                    growingScrollToLoad="false"
                     class="szAuditTable"
-                    items="{
-                      path: 'masterdata>/AuditLogs',
-                      sorter: { path: 'EVENT_TIMESTAMP', descending: true },
-                      parameters: { '$count': true }
-                    }">
+                    items="{ui>/audit/items}">
                     <columns>
-                      <Column width="170px" hAlign="Begin"><Text text="Date &amp; Time"/></Column>
+                      <Column width="190px" hAlign="Begin"><Text text="Date &amp; Time"/></Column>
                       <Column width="170px" hAlign="Begin"><Text text="Application"/></Column>
                       <Column width="140px" hAlign="Begin"><Text text="Module"/></Column>
                       <Column width="160px" hAlign="Begin"><Text text="Entity Name"/></Column>
                       <Column width="170px" hAlign="Begin"><Text text="Entity ID"/></Column>
                       <Column width="130px" hAlign="Begin"><Text text="Action Type"/></Column>
                       <Column width="130px" hAlign="Begin"><Text text="Field Name"/></Column>
-                      <Column width="150px" hAlign="Begin"><Text text="Old Value"/></Column>
-                      <Column width="150px" hAlign="Begin"><Text text="New Value"/></Column>
-                      <Column width="160px" hAlign="Begin"><Text text="User"/></Column>
+                      <Column width="180px" hAlign="Begin"><Text text="User"/></Column>
                       <Column width="110px" hAlign="Begin"><Text text="Status"/></Column>
-                      <Column width="110px" hAlign="Begin"><Text text="Source"/></Column>
                     </columns>
                     <ColumnListItem>
                       <cells>
-                        <Text text="{
-                          path: 'masterdata>EVENT_TIMESTAMP',
-                          type: 'sap.ui.model.odata.type.DateTimeOffset',
-                          formatOptions: { style: 'medium' }
-                        }"/>
-                        <Text text="{masterdata>APPLICATION}"/>
-                        <Text text="{masterdata>MODULE}"/>
-                        <Text text="{masterdata>ENTITY_NAME}"/>
-                        <Text text="{masterdata>ENTITY_ID}"/>
-                        <Text text="{masterdata>ACTION_TYPE}"/>
-                        <Text text="{masterdata>FIELD_NAME}"/>
-                        <Text text="{masterdata>OLD_VALUE}"/>
-                        <Text text="{masterdata>NEW_VALUE}"/>
-                        <Text text="{masterdata>USER_NAME}"/>
-                        <Text text="{masterdata>STATUS}"/>
-                        <Text text="{masterdata>SOURCE}"/>
+                        <Text text="{ path: 'ui>EVENT_TIMESTAMP', formatter: '.formatAuditTimestamp' }"/>
+                        <Text text="{ui>APPLICATION}"/>
+                        <Text text="{ui>MODULE}"/>
+                        <Text text="{ui>ENTITY_NAME}"/>
+                        <Text text="{ui>ENTITY_ID}"/>
+                        <Text text="{ui>ACTION_TYPE}"/>
+                        <Text text="{ui>FIELD_NAME}"/>
+                        <Text text="{ui>USER_NAME}"/>
+                        <ObjectStatus
+                          text="{ui>STATUS}"
+                          state="{= ${ui>STATUS} === 'Success' ? 'Success' : (${ui>STATUS} === 'IdleTimeout' || ${ui>STATUS} === 'BrowserClose' ? 'Warning' : 'Error') }"/>
                       </cells>
                     </ColumnListItem>
                   </Table>
+
+                  <!-- Pagination toolbar -->
+                  <Toolbar class="szAuditPagerToolbar">
+                    <Text text="{= 'Page ' + ${ui>/audit/page} + ' of ' + ${ui>/audit/totalPages} + ' \u00b7 ' + ${ui>/audit/totalCount} + ' records' }" class="szAuditPagerText"/>
+                    <ToolbarSpacer/>
+                    <Button
+                      icon="sap-icon://media-rewind"
+                      tooltip="First page"
+                      type="Transparent"
+                      enabled="{= ${ui>/audit/page} > 1 }"
+                      press=".onAuditPageFirst"/>
+                    <Button
+                      icon="sap-icon://navigation-left-arrow"
+                      tooltip="Previous page"
+                      type="Transparent"
+                      enabled="{= ${ui>/audit/page} > 1 }"
+                      press=".onAuditPagePrev"/>
+                    <Label text="Go to" class="sapUiTinyMarginBegin sapUiTinyMarginEnd"/>
+                    <Input
+                      value="{ui>/audit/pageInput}"
+                      width="64px"
+                      type="Number"
+                      submit=".onAuditPageGoto"
+                      change=".onAuditPageGoto"/>
+                    <Button
+                      icon="sap-icon://navigation-right-arrow"
+                      tooltip="Next page"
+                      type="Transparent"
+                      enabled="{= ${ui>/audit/page} &lt; ${ui>/audit/totalPages} }"
+                      press=".onAuditPageNext"/>
+                    <Button
+                      icon="sap-icon://media-forward"
+                      tooltip="Last page"
+                      type="Transparent"
+                      enabled="{= ${ui>/audit/page} &lt; ${ui>/audit/totalPages} }"
+                      press=".onAuditPageLast"/>
+                  </Toolbar>
                 </VBox>
               </f:content>
             </f:Card>
