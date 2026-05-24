@@ -54,11 +54,13 @@ sap.ui.define([
 
     _resetIdleTimer: function () {
       if (this._idleTimerId) clearTimeout(this._idleTimerId);
-      this._idleTimerId = setTimeout(() => {
+      this._idleTimerId = setTimeout(async () => {
         // Session has timed out on the client side — log the event, then
         // redirect through the approuter logout endpoint so the server
         // session is also cleared, and the user lands on the custom logout page.
-        this._logLogout("IdleTimeout");
+        // Await the audit POST: once /do/logout fires the XSUAA session is
+        // destroyed and any in-flight POST would be rejected with 401.
+        try { await this._logLogout("IdleTimeout"); } catch (e) { /* never block */ }
         window.location.href = "/do/logout";
       }, IDLE_TIMEOUT_MS);
     },
@@ -166,15 +168,18 @@ sap.ui.define([
     _logLogout: function (sReason) {
       // Guard against duplicate emissions when multiple code paths converge
       // (e.g. user clicks Sign Out → beforeunload also fires).
-      if (this._auditLogoutFired) return;
+      if (this._auditLogoutFired) return Promise.resolve();
       this._auditLogoutFired = true;
-      if (!this._auditUserId) return;
+      if (!this._auditUserId) return Promise.resolve();
       const reason = sReason || "Success";
       const description =
         reason === "IdleTimeout" ? "Session timed out due to inactivity" :
         reason === "BrowserClose" ? "User closed the browser or tab" :
         "User signed out of the launchpad";
-      this._postAuditLog(this._buildAuditEntry({
+      // Return the POST promise so explicit sign-out flows can await it
+      // before navigating to /do/logout (which destroys the XSUAA session
+      // and would otherwise cause the in-flight POST to 401).
+      return this._postAuditLog(this._buildAuditEntry({
         ACTION_TYPE: "LOGOUT",
         ENTITY_NAME: "Logout",
         ENTITY_TYPE: "logout",
@@ -279,11 +284,13 @@ sap.ui.define([
       await this._openSettingsDialog();
     },
 
-    onUserMenuSignOut: function () {
+    onUserMenuSignOut: async function () {
       if (this._userPopover) this._userPopover.close();
       // Log the logout, then hand off to the approuter, which terminates
       // the XSUAA session and redirects the browser to the configured logoutPage.
-      this._logLogout("Success");
+      // We must AWAIT the audit POST — once /do/logout is hit the session is
+      // gone and any in-flight POST is rejected with 401.
+      try { await this._logLogout("Success"); } catch (e) { /* never block sign-out */ }
       window.location.href = "/do/logout";
     },
 
