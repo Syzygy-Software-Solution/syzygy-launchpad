@@ -6,6 +6,16 @@ version: 1.0.0
 parameters:
   deploy_mode: html5-repo
   enable-parallel-deployments: true
+  # Non-secret config — safe to keep in the repo.
+  # The actual SCIM client_id / client_secret live in the user-provided
+  # service `syzygy-launchpad-ias` (see resources section).
+  ias-host: a6cvqiuhb.accounts.ondemand.com
+  # XSUAA Trust-Configuration `origin` key used for shadow users that
+  # authenticate through the IAS tenant above. Visible in BTP cockpit under
+  # Security → Trust Configuration as the "Origin Key" column. Defaults to
+  # `sap.custom` which is what most subaccounts use for a custom IAS tenant
+  # trust. Override here if your subaccount uses a different origin key.
+  ias-origin: sap.custom
 
 build-parameters:
   before-all:
@@ -24,6 +34,8 @@ modules:
       - name: syzygy-launchpad-auth
       - name: syzygy-launchpad-db
       - name: syzygy-launchpad-html5-host
+      - name: syzygy-launchpad-ias
+      - name: syzygy-launchpad-xsuaa-api
     provides:
       - name: srv-api
         properties:
@@ -31,6 +43,12 @@ modules:
     parameters:
       buildpack: nodejs_buildpack
       instances: 1
+    properties:
+      # Plain (non-secret) env vars surfaced to the running container.
+      # In MTA, runtime env vars live under module-level `properties:` —
+      # `parameters.env:` is NOT recognised by the deploy service.
+      IAS_HOST: ${ias-host}
+      IAS_ORIGIN: ${ias-origin}
     build-parameters:
       builder: npm-ci
 
@@ -127,3 +145,50 @@ resources:
     parameters:
       service: destination
       service-plan: lite
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # IAS SCIM credentials (user-provided service)
+  #
+  # Holds the Client ID + Client Secret of the System administrator created in
+  # SAP Cloud Identity Services (tenant: a6cvqiuhb.accounts.ondemand.com).
+  # These are the ONLY two secrets needed for the Administration screen — the
+  # rest (tenant host, BTP subaccount id, etc.) are non-secret and live in
+  # mta.yaml parameters.
+  #
+  # Credentials are managed OUT-OF-BAND so that `cf deploy` never overwrites
+  # them. Create / update with:
+  #
+  #   cf cups syzygy-launchpad-ias -p '{
+  #     "clientId":"<real-client-id>",
+  #     "clientSecret":"<real-client-secret>"
+  #   }'
+  #   # or, once created:
+  #   cf uups syzygy-launchpad-ias -p '{...}'
+  #
+  # then `cf restage syzygy-launchpad-srv` to pick up the new values.
+  #
+  # We reference it as `existing-service` so the MTA Deploy Service binds
+  # to the existing UPS without trying to (re)create or update it.
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: syzygy-launchpad-ias
+    type: org.cloudfoundry.existing-service
+    parameters:
+      service-name: syzygy-launchpad-ias
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # XSUAA apiaccess — gives our srv module OAuth client credentials it can
+  # use to call the BTP Authorization & Trust Management REST API. We use
+  # this to (a) list / create BTP Role Collections, (b) assign role
+  # collections to shadow users (which also auto-creates the shadow user in
+  # the subaccount). Endpoint base after binding lives in
+  # VCAP_SERVICES[xsuaa][0].credentials.apiurl
+  # (typically https://api.authentication.<region>.hana.ondemand.com).
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: syzygy-launchpad-xsuaa-api
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: apiaccess
+      config:
+        xsappname: syzygy-launchpad-api-${org}-${space}
+        tenant-mode: dedicated

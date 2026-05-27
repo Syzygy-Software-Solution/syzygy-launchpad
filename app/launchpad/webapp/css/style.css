@@ -570,3 +570,97 @@ html[data-sz-theme="sap_horizon_dark"] .szAdminPage .sapMPageEnableScrolling,
 html[data-sz-theme="sap_horizon_dark"] .szAdminPage.sapMNavItem {
   background: linear-gradient(135deg, #12171c 0%, #1a2129 100%) !important;
 }
+
+/* Inherit the audit page's outer-padding wrapper so admin content sits at the
+   same gutter as Home + Audit. */
+.szAdminContent {
+  max-width: 1400px;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.5rem 2rem;
+}
+@media (max-width: 1280px) { .szAdminContent { padding: 1.25rem 1.5rem; } }
+@media (max-width: 1024px) { .szAdminContent { padding: 1rem 1.25rem; } }
+@media (max-width: 600px)  { .szAdminContent { padding: 0.75rem; } }
+
+.szAdminHeader,
+.szAdminSubHeader {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Breadcrumb */
+.szAdminBreadcrumb {
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--sapContent_LabelColor);
+  flex-wrap: wrap;
+  row-gap: 0.25rem;
+}
+.szAdminCrumbSep {
+  margin-inline: 0.4rem;
+  opacity: 0.6;
+}
+.szAdminCrumbCurrent {
+  color: var(--sapTitleColor);
+  font-weight: 600;
+}
+
+/* Admin module tiles — clickable cards with subtle hover */
+.szAdminTile {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 37, 74, 0.04), 0 4px 12px rgba(15, 37, 74, 0.06) !important;
+  border: 1px solid rgba(15, 37, 74, 0.06) !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-height: 140px;
+}
+.szAdminTile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 4px rgba(15, 37, 74, 0.06), 0 12px 24px rgba(15, 37, 74, 0.14) !important;
+}
+html[data-sz-theme="sap_horizon_dark"] .szAdminTile {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.30), 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+.szAdminTileDisabled {
+  opacity: 0.72;
+}
+.szAdminTileDisabled:hover { transform: none; }
+.szAdminTileDesc {
+  font-size: 0.85rem;
+  color: var(--sapContent_LabelColor);
+  line-height: 1.35;
+}
+
+/* Insight + quick-action widgets */
+.szAdminQuickActions .szAdminQuickBtn {
+  justify-content: flex-start;
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+.szAdminLegendLabel {
+  font-size: 0.85rem;
+  color: var(--sapContent_LabelColor);
+}
+.szAdminLegendValue {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.szAdminHealthStatus .sapMObjStatusText {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* User / role list rows */
+.szAdminUserName { font-weight: 600; }
+.szAdminUserHandle {
+  font-size: 0.75rem;
+  color: var(--sapContent_LabelColor);
+  font-family: "SF Mono", "Menlo", monospace;
+}
+
+/* Inline tables inside detail cards (group memberships, role members) */
+.szAdminInlineTable.sapMList { border: 1px solid var(--sapList_BorderColor); border-radius: 6px; }

@@ -15,6 +15,11 @@ sap.ui.define([
   // `masterdata` from the master_data project — a bare /masterdata/ would be
   // served by html5-apps-repo runtime instead of being proxied to the CAP service.
   const MASTERDATA_BASE = "/api/masterdata/";
+  // Admin service — proxies SCIM / Applications calls to IAS via the approuter.
+  // Matches the ^/api/admin/(.*)$ route in app/router/xs-app.json.
+  const ADMIN_BASE = "/api/admin/";
+  // Public URL of the IAS tenant’s admin console (deep-linked from tiles).
+  const IAS_CONSOLE_URL = "https://a6cvqiuhb.accounts.ondemand.com/admin";
   const AUDIT_TENANT_ID = "G325";
   const AUDIT_APPLICATION = "Syzygy Launchpad";
   const AUDIT_MODULE = "Authentication";
@@ -386,6 +391,9 @@ sap.ui.define([
       this._uiModel.setProperty("/selectedNavKey", "administration");
       this.byId("mainNav").to(this.byId("adminPage"));
       this._collapseSideNav();
+      // Load (or refresh) dashboard KPIs whenever the user lands on the
+      // Administration home page.
+      this._loadAdminOverview();
     },
 
     onSelectApp: async function (oEvent) {
@@ -922,6 +930,808 @@ sap.ui.define([
     },
 
     onCloseIconPicker: function () { this._iconPickerDialog.close(); },
+
+    /* ═════════════════════════════════════════════════════════════════════
+       ADMINISTRATION — Users / Roles / Applications
+       All endpoints go through /api/admin/ which the approuter proxies to
+       the AdminService (CAP) which in turn calls SAP Cloud Identity Services.
+       ═════════════════════════════════════════════════════════════════════ */
+
+    /* ---------- generic helper for admin actions ---------- */
+
+    _callAdmin: async function (name, payload, opts) {
+      const o = opts || {};
+      const url = window.location.origin + ADMIN_BASE + name;
+      const isGet = !!o.get;
+      let res;
+      try {
+        res = await fetch(url, {
+          method: isGet ? "GET" : "POST",
+          headers: isGet
+            ? { Accept: "application/json" }
+            : { "Content-Type": "application/json", Accept: "application/json" },
+          body: isGet ? undefined : JSON.stringify(payload || {}),
+          credentials: "include"
+        });
+      } catch (e) {
+        throw new Error(`Network error calling ${name}: ${e.message}`);
+      }
+      if (!res.ok) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+          const t = await res.text();
+          if (t) {
+            try { msg = JSON.parse(t).error?.message || t; } catch { msg = t; }
+          }
+        } catch {}
+        throw new Error(msg);
+      }
+      const ct = res.headers.get("content-type") || "";
+      if (res.status === 204 || !ct.includes("application/json")) return null;
+      return res.json();
+    },
+
+    /* ---------- Admin Home ---------- */
+
+    onAdminRefresh: function () {
+      this._loadAdminOverview(true);
+    },
+
+    _loadAdminOverview: async function (bForce) {
+      const ov = this._uiModel.getProperty("/admin/overview");
+      if (ov && ov.loaded && !bForce) {
+        // Refresh in the background but don't block the UI
+      }
+      try {
+        const data = await this._callAdmin("getOverview()", null, { get: true });
+        // CAP wraps function results in { value: ... }
+        const v = (data && data.value) || data || {};
+        const total  = Number(v.users) || 0;
+        const active = Number(v.activeUsers) || 0;
+        const pct    = total > 0 ? Math.round((active / total) * 100) + "%" : "0%";
+        this._uiModel.setProperty("/admin/overview", {
+          users:           String(v.users || 0),
+          activeUsers:     String(v.activeUsers || 0),
+          inactiveUsers:   String(v.inactiveUsers || 0),
+          groups:          String(v.groups || 0),
+          applications:    String(v.applications || 0),
+          roleCollections: String(v.roleCollections || 0),
+          activePercent:   pct,
+          iasHost:         v.iasHost || "",
+          iasOrigin:       v.iasOrigin || "",
+          healthy:         !!v.healthy,
+          btpHealthy:      !!v.btpHealthy,
+          healthyText:     v.healthy ? "Healthy" : "Unavailable",
+          btpHealthyText:  v.btpHealthy ? "Healthy" : "Unavailable",
+          error:           v.error || "",
+          loaded:          true
+        });
+      } catch (e) {
+        this._uiModel.setProperty("/admin/overview", {
+          users: "0", activeUsers: "0", inactiveUsers: "0", groups: "0", applications: "0",
+          roleCollections: "0",
+          activePercent: "0%",
+          iasHost: "",
+          iasOrigin: "",
+          healthy: false,
+          btpHealthy: false,
+          healthyText: "Unavailable",
+          btpHealthyText: "Unavailable",
+          error: e.message,
+          loaded: true
+        });
+      }
+    },
+
+    /* ---------- Tile presses ---------- */
+
+    onAdminTileUsers: function () {
+      this.byId("mainNav").to(this.byId("adminUsersPage"));
+      this._loadAdminUsers();
+    },
+
+    onAdminTileRoles: function () {
+      this.byId("mainNav").to(this.byId("adminRolesPage"));
+      this._loadAdminRoleCollections();
+    },
+
+    onAdminTileApps: function () {
+      this.byId("mainNav").to(this.byId("adminAppsPage"));
+      this._loadAdminApps();
+    },
+
+    onAdminTileAuditLogs: function () {
+      // Reuse existing audit-logs handler so the side-nav and state stay in sync.
+      this._uiModel.setProperty("/selectedNavKey", "auditLogs");
+      this.onSelectAuditLogs();
+    },
+
+    onAdminTileIasConsole: function () {
+      window.open(IAS_CONSOLE_URL, "_blank", "noopener");
+    },
+
+    onAdminTilePasswordPolicy: function () {
+      MessageToast.show("Password policy management is coming soon. Use the IAS console for now.");
+      window.open(IAS_CONSOLE_URL + "/passwordPolicies", "_blank", "noopener");
+    },
+
+    onAdminTileEmailTemplates: function () {
+      MessageToast.show("Email template management is coming soon. Use the IAS console for now.");
+      window.open(IAS_CONSOLE_URL + "/emailTemplates", "_blank", "noopener");
+    },
+
+    onAdminTileSystemConfig: function () {
+      MessageToast.show("System configuration screen is coming soon.");
+    },
+
+    /* ---------- Breadcrumb navigation ---------- */
+
+    onAdminBackToHome: function () {
+      this.byId("mainNav").to(this.byId("adminPage"));
+    },
+    onAdminBackToUsers: function () {
+      this.byId("mainNav").to(this.byId("adminUsersPage"));
+    },
+    onAdminBackToRoles: function () {
+      this.byId("mainNav").to(this.byId("adminRolesPage"));
+    },
+
+    /* ---------- Quick actions from Admin Home ---------- */
+
+    onAdminInviteUserFromHome: async function () {
+      if (!this._uiModel.getProperty("/admin/roleCollections/loaded")) {
+        this._loadAdminRoleCollections();
+      }
+      this.onAdminOpenInviteDialog();
+    },
+
+    onAdminCreateRoleFromHome: function () {
+      this.onAdminOpenCreateRoleCollectionDialog();
+    },
+
+    onAdminCreateRoleCollectionFromHome: function () {
+      this.onAdminOpenCreateRoleCollectionDialog();
+    },
+
+    /* ─────────────────────────────────────────────────────────────────────
+       USER MANAGEMENT
+       ───────────────────────────────────────────────────────────────────── */
+
+    _loadAdminUsers: async function () {
+      this._uiModel.setProperty("/admin/users/busy", true);
+      try {
+        const filter = (this._uiModel.getProperty("/admin/users/search") || "").trim();
+        // SCIM filter syntax: `userName co "foo" or emails co "foo"`
+        const qs = filter
+          ? `(filter='${encodeURIComponent(`userName co "${filter}" or emails co "${filter}"`)}')`
+          : "()";
+        const data = await this._callAdmin("listUsers" + qs, null, { get: true });
+        const v = (data && data.value) || data || {};
+        this._uiModel.setProperty("/admin/users/items", v.items || []);
+        this._uiModel.setProperty("/admin/users/total", v.totalResults || (v.items || []).length);
+        this._uiModel.setProperty("/admin/users/loaded", true);
+      } catch (e) {
+        MessageBox.error("Failed to load users: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/users/busy", false);
+      }
+    },
+
+    onAdminReloadUsers: function () { this._loadAdminUsers(); },
+
+    onAdminUserSearch: function () {
+      // Debounce — 300 ms after the user stops typing.
+      if (this._userSearchTimer) clearTimeout(this._userSearchTimer);
+      this._userSearchTimer = setTimeout(() => this._loadAdminUsers(), 300);
+    },
+
+    onAdminUserOpen: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const u = ctx.getObject();
+      this._uiModel.setProperty("/admin/userDetail", {
+        id: u.id, userName: u.userName, email: u.email,
+        firstName: u.firstName, lastName: u.lastName,
+        active: u.active, created: u.created,
+        groups: [], roleCollections: [], busy: true
+      });
+      // Make sure role collections are loaded so the assign dropdown has options.
+      if (!this._uiModel.getProperty("/admin/roleCollections/loaded")) {
+        this._loadAdminRoleCollections();
+      }
+      this.byId("mainNav").to(this.byId("adminUserDetailPage"));
+      this._loadAdminUserDetail(u.id);
+      this._loadAdminUserRoleCollections(u.userName || u.email);
+    },
+
+    _loadAdminUserDetail: async function (sId) {
+      try {
+        const data = await this._callAdmin("getUserDetails(id='" + encodeURIComponent(sId) + "')", null, { get: true });
+        const raw = (data && data.value) || data || "{}";
+        const user = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const groups = (user.groups || []).map(g => ({
+          value:   g.value,
+          display: g.display || g.value
+        }));
+        this._uiModel.setProperty("/admin/userDetail/groups", groups);
+      } catch (e) {
+        MessageBox.error("Failed to load user details: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/userDetail/busy", false);
+      }
+    },
+
+    onAdminUserDetailSave: async function () {
+      const u = this._uiModel.getProperty("/admin/userDetail");
+      if (!u.id) return;
+      this._uiModel.setProperty("/admin/userDetail/busy", true);
+      try {
+        await this._callAdmin("updateUserProfile", {
+          id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email
+        });
+        MessageToast.show("User updated");
+        this._loadAdminUsers();
+      } catch (e) {
+        MessageBox.error("Failed to update user: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/userDetail/busy", false);
+      }
+    },
+
+    onAdminUserDetailToggleActive: async function () {
+      const u = this._uiModel.getProperty("/admin/userDetail");
+      if (!u.id) return;
+      this._uiModel.setProperty("/admin/userDetail/busy", true);
+      try {
+        await this._callAdmin("setUserActive", { id: u.id, active: !u.active });
+        this._uiModel.setProperty("/admin/userDetail/active", !u.active);
+        MessageToast.show(!u.active ? "User activated" : "User deactivated");
+        this._loadAdminUsers();
+      } catch (e) {
+        MessageBox.error(e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/userDetail/busy", false);
+      }
+    },
+
+    onAdminUserToggleActive: async function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const u = ctx.getObject();
+      try {
+        await this._callAdmin("setUserActive", { id: u.id, active: !u.active });
+        MessageToast.show(!u.active ? "User activated" : "User deactivated");
+        this._loadAdminUsers();
+        this._loadAdminOverview(true);
+      } catch (e) {
+        MessageBox.error(e.message);
+      }
+    },
+
+    onAdminUserDelete: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const u = ctx.getObject();
+      const label = (u.firstName + " " + u.lastName).trim() || u.userName;
+      MessageBox.confirm(
+        `Delete user "${label}"?\n\nThis permanently removes the user from your IAS tenant. This action cannot be undone.`,
+        {
+          icon: MessageBox.Icon.WARNING,
+          title: "Delete User",
+          actions: [MessageBox.Action.DELETE, MessageBox.Action.CANCEL],
+          emphasizedAction: MessageBox.Action.DELETE,
+          onClose: async (action) => {
+            if (action !== MessageBox.Action.DELETE) return;
+            try {
+              await this._callAdmin("deleteUser", { id: u.id });
+              MessageToast.show("User deleted");
+              this._loadAdminUsers();
+              this._loadAdminOverview(true);
+            } catch (e) {
+              MessageBox.error(e.message);
+            }
+          }
+        }
+      );
+    },
+
+    /* ---------- Invite User dialog ---------- */
+
+    onAdminOpenInviteDialog: async function () {
+      // Reset form fields each time the dialog opens.
+      this._uiModel.setProperty("/admin/invite", {
+        firstName: "", lastName: "", email: "", active: true,
+        availableRC: [], selectedRCKeys: [], busy: false
+      });
+      // Make sure role-collection list is loaded for the multi-select.
+      if (!this._uiModel.getProperty("/admin/roleCollections/loaded")) {
+        this._loadAdminRoleCollections();
+      }
+      if (!this._adminInviteDialog) {
+        this._adminInviteDialog = await Fragment.load({
+          id:         this.getView().getId(),
+          name:       "syzygylaunchpad.view.AdminInviteUserDialog",
+          controller: this
+        });
+        this.getView().addDependent(this._adminInviteDialog);
+      }
+      this._adminInviteDialog.open();
+    },
+
+    onAdminInviteUserCancel: function () { this._adminInviteDialog.close(); },
+
+    onAdminInviteUserSubmit: async function () {
+      const v = this._uiModel.getProperty("/admin/invite");
+      if (!v.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email)) {
+        MessageBox.warning("Please enter a valid email address.");
+        return;
+      }
+      this._uiModel.setProperty("/admin/invite/busy", true);
+      try {
+        const rcKeys = v.selectedRCKeys || [];
+        const resp = await this._callAdmin("inviteUser", {
+          userName:        v.email,
+          email:           v.email,
+          firstName:       v.firstName,
+          lastName:        v.lastName,
+          active:          v.active,
+          roleCollections: rcKeys
+        });
+        // Response is a JSON string from CAP: { user, assignmentErrors }
+        const raw = (resp && resp.value) || resp || "{}";
+        let parsed = {};
+        try { parsed = typeof raw === "string" ? JSON.parse(raw) : raw; } catch { parsed = {}; }
+        const errs = parsed.assignmentErrors || [];
+        this._adminInviteDialog.close();
+        if (errs.length) {
+          const lines = errs.map(e => `• ${e.roleCollection}: ${e.error}`).join("\n");
+          MessageBox.warning(`User created in IAS, but some role-collection assignments failed:\n\n${lines}`);
+        } else if (rcKeys.length) {
+          MessageToast.show(`User invited and assigned to ${rcKeys.length} role collection(s)`);
+        } else {
+          MessageToast.show("User invited");
+        }
+        this._loadAdminUsers();
+        this._loadAdminOverview(true);
+      } catch (e) {
+        MessageBox.error("Failed to invite user: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/invite/busy", false);
+      }
+    },
+
+    /* ---------- Group membership (on user detail page) ---------- */
+
+    onAdminUserAddToGroup: async function () {
+      const sel = this.byId("adminUserAddGroupSelect");
+      const groupId = sel && sel.getSelectedKey();
+      const userId  = this._uiModel.getProperty("/admin/userDetail/id");
+      if (!groupId) { MessageToast.show("Pick a group first"); return; }
+      if (!userId)  return;
+      try {
+        await this._callAdmin("addUserToGroup", { userId, groupId });
+        MessageToast.show("Added to group");
+        this._loadAdminUserDetail(userId);
+      } catch (e) { MessageBox.error(e.message); }
+    },
+
+    onAdminUserRemoveFromGroup: async function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const g = ctx.getObject();
+      const userId = this._uiModel.getProperty("/admin/userDetail/id");
+      if (!userId || !g.value) return;
+      try {
+        await this._callAdmin("removeUserFromGroup", { userId, groupId: g.value });
+        MessageToast.show("Removed from group");
+        this._loadAdminUserDetail(userId);
+      } catch (e) { MessageBox.error(e.message); }
+    },
+
+    /* ─────────────────────────────────────────────────────────────────────
+       ROLE / GROUP MANAGEMENT
+       ───────────────────────────────────────────────────────────────────── */
+
+    _loadAdminRoles: async function () {
+      this._uiModel.setProperty("/admin/roles/busy", true);
+      try {
+        const filter = (this._uiModel.getProperty("/admin/roles/search") || "").trim();
+        const qs = filter
+          ? `(filter='${encodeURIComponent(`displayName co "${filter}"`)}')`
+          : "()";
+        const data = await this._callAdmin("listGroups" + qs, null, { get: true });
+        const v = (data && data.value) || data || {};
+        this._uiModel.setProperty("/admin/roles/items", v.items || []);
+        this._uiModel.setProperty("/admin/roles/total", v.totalResults || (v.items || []).length);
+        this._uiModel.setProperty("/admin/roles/loaded", true);
+      } catch (e) {
+        MessageBox.error("Failed to load roles: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/roles/busy", false);
+      }
+    },
+
+    onAdminReloadRoles: function () { this._loadAdminRoles(); },
+
+    onAdminRoleSearch: function () {
+      if (this._roleSearchTimer) clearTimeout(this._roleSearchTimer);
+      this._roleSearchTimer = setTimeout(() => this._loadAdminRoles(), 300);
+    },
+
+    onAdminRoleOpen: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const g = ctx.getObject();
+      this._uiModel.setProperty("/admin/roleDetail", {
+        id:          g.id,
+        displayName: g.displayName,
+        description: g.description,
+        members:     [],
+        busy:        true
+      });
+      // Make sure users are loaded for the "Add member" dropdown.
+      if (!this._uiModel.getProperty("/admin/users/loaded")) {
+        this._loadAdminUsers();
+      }
+      this.byId("mainNav").to(this.byId("adminRoleDetailPage"));
+      this._loadAdminRoleDetail(g.id);
+    },
+
+    _loadAdminRoleDetail: async function (sId) {
+      try {
+        const data = await this._callAdmin("getGroupDetails(id='" + encodeURIComponent(sId) + "')", null, { get: true });
+        const raw  = (data && data.value) || data || "{}";
+        const group = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const members = (group.members || []).map(m => ({
+          value:   m.value,
+          display: m.display || m.value
+        }));
+        this._uiModel.setProperty("/admin/roleDetail/members", members);
+      } catch (e) {
+        MessageBox.error("Failed to load role details: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/roleDetail/busy", false);
+      }
+    },
+
+    onAdminRoleSave: async function () {
+      const g = this._uiModel.getProperty("/admin/roleDetail");
+      if (!g.id) return;
+      this._uiModel.setProperty("/admin/roleDetail/busy", true);
+      try {
+        await this._callAdmin("updateGroup", {
+          id: g.id, displayName: g.displayName, description: g.description
+        });
+        MessageToast.show("Role updated");
+        this._loadAdminRoles();
+      } catch (e) {
+        MessageBox.error(e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/roleDetail/busy", false);
+      }
+    },
+
+    onAdminRoleDelete: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const g = ctx.getObject();
+      MessageBox.confirm(
+        `Delete role "${g.displayName}"?\n\nMembers of this group will lose any access granted by it. This action cannot be undone.`,
+        {
+          icon: MessageBox.Icon.WARNING,
+          title: "Delete Role",
+          actions: [MessageBox.Action.DELETE, MessageBox.Action.CANCEL],
+          emphasizedAction: MessageBox.Action.DELETE,
+          onClose: async (action) => {
+            if (action !== MessageBox.Action.DELETE) return;
+            try {
+              await this._callAdmin("deleteGroup", { id: g.id });
+              MessageToast.show("Role deleted");
+              this._loadAdminRoles();
+              this._loadAdminOverview(true);
+            } catch (e) { MessageBox.error(e.message); }
+          }
+        }
+      );
+    },
+
+    /* ---------- Create Role dialog ---------- */
+
+    onAdminOpenCreateRoleDialog: async function () {
+      this._uiModel.setProperty("/admin/newRole", { displayName: "", description: "", busy: false });
+      if (!this._adminCreateRoleDialog) {
+        this._adminCreateRoleDialog = await Fragment.load({
+          id:         this.getView().getId(),
+          name:       "syzygylaunchpad.view.AdminCreateRoleDialog",
+          controller: this
+        });
+        this.getView().addDependent(this._adminCreateRoleDialog);
+      }
+      this._adminCreateRoleDialog.open();
+    },
+
+    onAdminCreateRoleCancel: function () { this._adminCreateRoleDialog.close(); },
+
+    onAdminCreateRoleSubmit: async function () {
+      const v = this._uiModel.getProperty("/admin/newRole");
+      if (!v.displayName || !v.displayName.trim()) {
+        MessageBox.warning("Role name is required.");
+        return;
+      }
+      this._uiModel.setProperty("/admin/newRole/busy", true);
+      try {
+        await this._callAdmin("createGroup", { displayName: v.displayName.trim(), description: v.description || "" });
+        MessageToast.show("Role created");
+        this._adminCreateRoleDialog.close();
+        this._loadAdminRoles();
+        this._loadAdminOverview(true);
+      } catch (e) {
+        MessageBox.error("Failed to create role: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/newRole/busy", false);
+      }
+    },
+
+    /* ---------- Role members ---------- */
+
+    onAdminRoleAddMember: async function () {
+      const sel = this.byId("adminRoleAddMemberSelect");
+      const userId  = sel && sel.getSelectedKey();
+      const groupId = this._uiModel.getProperty("/admin/roleDetail/id");
+      if (!userId)  { MessageToast.show("Pick a user first"); return; }
+      if (!groupId) return;
+      try {
+        await this._callAdmin("addUserToGroup", { userId, groupId });
+        MessageToast.show("Member added");
+        this._loadAdminRoleDetail(groupId);
+      } catch (e) { MessageBox.error(e.message); }
+    },
+
+    onAdminRoleRemoveMember: async function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const m = ctx.getObject();
+      const groupId = this._uiModel.getProperty("/admin/roleDetail/id");
+      if (!groupId || !m.value) return;
+      try {
+        await this._callAdmin("removeUserFromGroup", { userId: m.value, groupId });
+        MessageToast.show("Member removed");
+        this._loadAdminRoleDetail(groupId);
+      } catch (e) { MessageBox.error(e.message); }
+    },
+
+    /* ─────────────────────────────────────────────────────────────────────
+       BTP ROLE COLLECTIONS
+       ───────────────────────────────────────────────────────────────────── */
+
+    _loadAdminRoleCollections: async function () {
+      this._uiModel.setProperty("/admin/roleCollections/busy", true);
+      try {
+        const data = await this._callAdmin("listRoleCollections()", null, { get: true });
+        const v = (data && data.value) || data || {};
+        let items = v.items || [];
+        const search = (this._uiModel.getProperty("/admin/roleCollections/search") || "").trim().toLowerCase();
+        if (search) {
+          items = items.filter(rc =>
+            (rc.name || "").toLowerCase().includes(search) ||
+            (rc.description || "").toLowerCase().includes(search));
+        }
+        this._uiModel.setProperty("/admin/roleCollections/items", items);
+        this._uiModel.setProperty("/admin/roleCollections/total", v.totalResults || items.length);
+        this._uiModel.setProperty("/admin/roleCollections/loaded", true);
+      } catch (e) {
+        MessageBox.error("Failed to load role collections: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/roleCollections/busy", false);
+      }
+    },
+
+    onAdminReloadRoleCollections: function () { this._loadAdminRoleCollections(); },
+
+    onAdminRoleCollectionSearch: function () {
+      if (this._rcSearchTimer) clearTimeout(this._rcSearchTimer);
+      this._rcSearchTimer = setTimeout(() => this._loadAdminRoleCollections(), 300);
+    },
+
+    onAdminRoleCollectionOpen: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const rc = ctx.getObject();
+      this._uiModel.setProperty("/admin/roleCollectionDetail", {
+        name:        rc.name,
+        description: rc.description,
+        isReadOnly:  !!rc.isReadOnly,
+        roles:       [],
+        raw:         "",
+        busy:        true
+      });
+      this.byId("mainNav").to(this.byId("adminRoleDetailPage"));
+      this._loadAdminRoleCollectionDetail(rc.name);
+    },
+
+    _loadAdminRoleCollectionDetail: async function (sName) {
+      try {
+        const data = await this._callAdmin(
+          "getRoleCollectionDetails(name='" + encodeURIComponent(sName) + "')",
+          null, { get: true });
+        const raw = (data && data.value) || data || "{}";
+        const rc  = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const roles = (rc.roleReferences || []).map(r => ({
+          name:          r.name || "",
+          applicationId: r.applicationIdentifier || r.applicationId || "",
+          description:   r.description || ""
+        }));
+        this._uiModel.setProperty("/admin/roleCollectionDetail/description", rc.description || "");
+        this._uiModel.setProperty("/admin/roleCollectionDetail/isReadOnly",  rc.isReadOnly === true);
+        this._uiModel.setProperty("/admin/roleCollectionDetail/roles",       roles);
+        this._uiModel.setProperty("/admin/roleCollectionDetail/raw",         typeof raw === "string" ? raw : JSON.stringify(rc, null, 2));
+      } catch (e) {
+        MessageBox.error("Failed to load role collection: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/roleCollectionDetail/busy", false);
+      }
+    },
+
+    onAdminRoleCollectionDelete: function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const rc = ctx.getObject();
+      if (rc.isReadOnly) {
+        MessageBox.warning("This is a built-in role collection and cannot be deleted.");
+        return;
+      }
+      MessageBox.confirm(
+        `Delete role collection "${rc.name}"?\n\nAll users currently assigned to it will lose the access it grants. This cannot be undone.`,
+        {
+          icon: MessageBox.Icon.WARNING,
+          title: "Delete Role Collection",
+          actions: [MessageBox.Action.DELETE, MessageBox.Action.CANCEL],
+          emphasizedAction: MessageBox.Action.DELETE,
+          onClose: async (action) => {
+            if (action !== MessageBox.Action.DELETE) return;
+            try {
+              await this._callAdmin("deleteRoleCollection", { name: rc.name });
+              MessageToast.show("Role collection deleted");
+              this._loadAdminRoleCollections();
+              this._loadAdminOverview(true);
+            } catch (e) { MessageBox.error(e.message); }
+          }
+        }
+      );
+    },
+
+    /* ---------- Create Role Collection dialog ---------- */
+
+    onAdminOpenCreateRoleCollectionDialog: async function () {
+      this._uiModel.setProperty("/admin/newRoleCollection", { name: "", description: "", busy: false });
+      if (!this._adminCreateRCDialog) {
+        this._adminCreateRCDialog = await Fragment.load({
+          id:         this.getView().getId(),
+          name:       "syzygylaunchpad.view.AdminCreateRoleCollectionDialog",
+          controller: this
+        });
+        this.getView().addDependent(this._adminCreateRCDialog);
+      }
+      this._adminCreateRCDialog.open();
+    },
+
+    onAdminCreateRoleCollectionCancel: function () { this._adminCreateRCDialog.close(); },
+
+    onAdminCreateRoleCollectionSubmit: async function () {
+      const v = this._uiModel.getProperty("/admin/newRoleCollection");
+      if (!v.name || !v.name.trim()) {
+        MessageBox.warning("Role collection name is required.");
+        return;
+      }
+      this._uiModel.setProperty("/admin/newRoleCollection/busy", true);
+      try {
+        await this._callAdmin("createRoleCollection", {
+          name:        v.name.trim(),
+          description: v.description || ""
+        });
+        MessageToast.show("Role collection created");
+        this._adminCreateRCDialog.close();
+        this._loadAdminRoleCollections();
+        this._loadAdminOverview(true);
+      } catch (e) {
+        MessageBox.error("Failed to create role collection: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/newRoleCollection/busy", false);
+      }
+    },
+
+    /* ---------- User ↔ Role Collection assignment ---------- */
+
+    _loadAdminUserRoleCollections: async function (sUserName) {
+      if (!sUserName) {
+        this._uiModel.setProperty("/admin/userDetail/roleCollections", []);
+        return;
+      }
+      try {
+        const data = await this._callAdmin(
+          "getUserRoleCollections(userName='" + encodeURIComponent(sUserName) + "')",
+          null, { get: true });
+        const v = (data && data.value) || data || {};
+        this._uiModel.setProperty("/admin/userDetail/roleCollections", v.items || []);
+      } catch (e) {
+        // Don't error-toast — common case is no shadow user yet.
+        this._uiModel.setProperty("/admin/userDetail/roleCollections", []);
+      }
+    },
+
+    onAdminUserAssignRC: async function () {
+      const sel = this.byId("adminUserAddRCSelect");
+      const rcName  = sel && sel.getSelectedKey();
+      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
+                    || this._uiModel.getProperty("/admin/userDetail/email");
+      if (!rcName)   { MessageToast.show("Pick a role collection first"); return; }
+      if (!userName) return;
+      this._uiModel.setProperty("/admin/userDetail/busy", true);
+      try {
+        await this._callAdmin("assignRoleCollection", { userName, roleCollectionName: rcName });
+        MessageToast.show("Role collection assigned");
+        this._loadAdminUserRoleCollections(userName);
+      } catch (e) {
+        MessageBox.error("Failed to assign role collection: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/userDetail/busy", false);
+      }
+    },
+
+    onAdminUserUnassignRC: async function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const rc = ctx.getObject();
+      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
+                    || this._uiModel.getProperty("/admin/userDetail/email");
+      if (!userName || !rc.name) return;
+      this._uiModel.setProperty("/admin/userDetail/busy", true);
+      try {
+        await this._callAdmin("unassignRoleCollection", { userName, roleCollectionName: rc.name });
+        MessageToast.show("Role collection removed");
+        this._loadAdminUserRoleCollections(userName);
+      } catch (e) {
+        MessageBox.error("Failed to remove role collection: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/userDetail/busy", false);
+      }
+    },
+
+    /* ─────────────────────────────────────────────────────────────────────
+       APPLICATION ACCESS
+       ───────────────────────────────────────────────────────────────────── */
+
+    _loadAdminApps: async function () {
+      this._uiModel.setProperty("/admin/apps/busy", true);
+      try {
+        const data = await this._callAdmin("listApplications()", null, { get: true });
+        const v = (data && data.value) || data || {};
+        this._uiModel.setProperty("/admin/apps/items", v.items || []);
+        this._uiModel.setProperty("/admin/apps/total", v.totalResults || (v.items || []).length);
+        this._uiModel.setProperty("/admin/apps/loaded", true);
+      } catch (e) {
+        MessageBox.error("Failed to load applications: " + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/apps/busy", false);
+      }
+    },
+
+    onAdminReloadApps: function () { this._loadAdminApps(); },
+
+    onAdminAppOpen: async function (oEvent) {
+      const ctx = oEvent.getSource().getBindingContext("ui");
+      if (!ctx) return;
+      const a = ctx.getObject();
+      try {
+        const data = await this._callAdmin(
+          "getApplicationDetails(id='" + encodeURIComponent(a.id) + "')",
+          null,
+          { get: true }
+        );
+        const raw = (data && data.value) || data || "{}";
+        MessageBox.information(raw, { title: a.displayName, contentWidth: "640px" });
+      } catch (e) { MessageBox.error(e.message); }
+    },
 
     /* ---------- helpers ---------- */
 

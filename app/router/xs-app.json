@@ -16,6 +16,13 @@
       "csrfProtection": false
     },
     {
+      "source": "^/api/admin/(.*)$",
+      "target": "/odata/v4/admin/$1",
+      "destination": "srv-api",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
       "source": "^/api/masterdata/(.*)$",
       "target": "/odata/v4/master-data/$1",
       "destination": "syzygy-masterdata",

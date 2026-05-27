@@ -1,0 +1,31 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <Dialog
+    id="adminCreateRoleDialog"
+    title="Create Role"
+    contentWidth="480px"
+    busy="{ui>/admin/newRole/busy}">
+
+    <content>
+      <VBox class="sapUiMediumMargin">
+        <Text text="A new SCIM group will be created in your IAS tenant. You can add members after the group is created." class="sapUiSmallMarginBottom"/>
+
+        <Label text="Role Name *" design="Bold" required="true" class="sapUiTinyMarginBottom"/>
+        <Input value="{ui>/admin/newRole/displayName}" placeholder="e.g. Buyers, Approvers" class="sapUiSmallMarginBottom"/>
+
+        <Label text="Description" design="Bold" class="sapUiTinyMarginBottom"/>
+        <TextArea value="{ui>/admin/newRole/description}" rows="3" growing="true" placeholder="What does this role grant access to?"/>
+      </VBox>
+    </content>
+
+    <beginButton>
+      <Button text="Create" type="Emphasized" press=".onAdminCreateRoleSubmit"/>
+    </beginButton>
+    <endButton>
+      <Button text="Cancel" press=".onAdminCreateRoleCancel"/>
+    </endButton>
+  </Dialog>
+
+</core:FragmentDefinition>

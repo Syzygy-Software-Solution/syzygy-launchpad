@@ -567,12 +567,656 @@
           </VBox>
         </Page>
 
-        <!-- ═══ Administration Page ═══ -->
-        <Page id="adminPage" showHeader="false" class="szAdminPage">
-          <VBox height="100%" justifyContent="Center" alignItems="Center" class="szAdminEmpty">
-            <core:Icon src="sap-icon://shield" size="5rem" color="Default" class="sapUiMediumMarginBottom szAdminEmptyIcon"/>
-            <Title text="Administration" level="H2" class="sapUiSmallMarginBottom"/>
-            <Text text="System administration features are currently being built. Check back soon." textAlign="Center" class="szAdminEmptyText"/>
+        <!-- ═══ Administration Home ═══ -->
+        <Page id="adminPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+
+            <!-- Heading + actions -->
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminHeader">
+              <VBox>
+                <Title text="Administration" level="H2"/>
+                <Text text="Manage users, roles, applications &amp; tenant settings." class="szHomeSubtitle"/>
+              </VBox>
+              <HBox alignItems="Center">
+                <Button text="Refresh" icon="sap-icon://refresh" type="Transparent" press=".onAdminRefresh" class="sapUiTinyMarginEnd"/>
+                <Button text="Invite User" icon="sap-icon://add-employee" type="Emphasized" press=".onAdminInviteUserFromHome"/>
+              </HBox>
+            </HBox>
+
+            <!-- Connection-health banner (only when unhealthy) -->
+            <MessageStrip
+              type="Error"
+              showIcon="true"
+              visible="{= !${ui>/admin/overview/healthy} &amp;&amp; ${ui>/admin/overview/loaded} }"
+              text="{ui>/admin/overview/error}"
+              class="sapUiSmallMarginBottom"/>
+
+            <!-- KPI strip -->
+            <HBox wrap="Wrap" class="szAuditKpiRow sapUiSmallMarginBottom">
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header><card:Header title="Total Users" subtitle="In your IAS tenant" iconSrc="sap-icon://employee"/></f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="{ui>/admin/overview/users}" level="H1" class="szKpiValue"/>
+                    <Text text="All registered users" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header><card:Header title="Active Users" subtitle="{ui>/admin/overview/activePercent}" iconSrc="sap-icon://accept"/></f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="{ui>/admin/overview/activeUsers}" level="H1" class="szKpiValue szKpiSuccess"/>
+                    <Text text="{= ${ui>/admin/overview/inactiveUsers} + ' inactive' }" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header><card:Header title="Role Collections" subtitle="BTP subaccount" iconSrc="sap-icon://role"/></f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="{ui>/admin/overview/roleCollections}" level="H1" class="szKpiValue szKpiInfo"/>
+                    <Text text="Built-in + custom" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header><card:Header title="Applications" subtitle="Registered in IAS" iconSrc="sap-icon://grid"/></f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Title text="{ui>/admin/overview/applications}" level="H1" class="szKpiValue"/>
+                    <Text text="Connected apps" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szKpiCard szAuditKpiCard">
+                <f:header><card:Header title="IAS Connection" subtitle="{ui>/admin/overview/iasHost}" iconSrc="sap-icon://connected"/></f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <ObjectStatus
+                      text="{= ${ui>/admin/overview/healthy} ? 'Healthy' : 'Unavailable' }"
+                      state="{= ${ui>/admin/overview/healthy} ? 'Success' : 'Error' }"
+                      icon="{= ${ui>/admin/overview/healthy} ? 'sap-icon://sys-enter-2' : 'sap-icon://error' }"
+                      class="szAdminHealthStatus"/>
+                    <Text text="SCIM 2.0 / Applications v1" class="szKpiHint"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+            </HBox>
+
+            <!-- Admin modules — 8 tiles in 2 rows -->
+            <Title text="Admin Modules" level="H3" class="sapUiSmallMarginTop sapUiTinyMarginBottom"/>
+            <l:Grid defaultSpan="L3 M6 S12" hSpacing="1" vSpacing="1" containerQuery="true" class="sapUiSmallMarginBottom">
+
+              <f:Card class="szAdminTile" press=".onAdminTileUsers">
+                <f:header>
+                  <card:Header
+                    title="User Management"
+                    subtitle="{= ${ui>/admin/overview/users} + ' users' }"
+                    iconSrc="sap-icon://employee"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Invite, edit, deactivate or remove users in your IAS tenant." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile" press=".onAdminTileRoles">
+                <f:header>
+                  <card:Header
+                    title="Role Collections"
+                    subtitle="{= ${ui>/admin/overview/roleCollections} + ' collections' }"
+                    iconSrc="sap-icon://role"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Manage BTP role collections and assign them to users." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile" press=".onAdminTileApps">
+                <f:header>
+                  <card:Header
+                    title="Application Access"
+                    subtitle="{= ${ui>/admin/overview/applications} + ' apps' }"
+                    iconSrc="sap-icon://grid"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="View applications and the role templates they expose." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile szAdminTileDisabled" press=".onAdminTilePasswordPolicy">
+                <f:header>
+                  <card:Header
+                    title="Password Policy"
+                    subtitle="Coming soon"
+                    iconSrc="sap-icon://key"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Configure tenant-wide password rules. Opens IAS console." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile szAdminTileDisabled" press=".onAdminTileEmailTemplates">
+                <f:header>
+                  <card:Header
+                    title="Email Templates"
+                    subtitle="Coming soon"
+                    iconSrc="sap-icon://email"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Customise invitation, password-reset and welcome emails." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile szAdminTileDisabled" press=".onAdminTileSystemConfig">
+                <f:header>
+                  <card:Header
+                    title="System Configuration"
+                    subtitle="Coming soon"
+                    iconSrc="sap-icon://settings"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Tenant-wide branding, session timeouts and feature flags." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile" press=".onAdminTileAuditLogs">
+                <f:header>
+                  <card:Header
+                    title="Audit Logs"
+                    subtitle="View activity trail"
+                    iconSrc="sap-icon://document-text"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Review login, logout and data-change events across the platform." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szAdminTile" press=".onAdminTileIasConsole">
+                <f:header>
+                  <card:Header
+                    title="IAS Admin Console"
+                    subtitle="Opens in new tab"
+                    iconSrc="sap-icon://action"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin">
+                    <Text text="Jump to the full SAP Cloud Identity Services admin console." class="szAdminTileDesc"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+            </l:Grid>
+
+            <!-- Insight widgets row -->
+            <l:Grid defaultSpan="L6 M12 S12" hSpacing="1" vSpacing="1" containerQuery="true">
+
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header title="User Status Breakdown" subtitle="From your IAS tenant" iconSrc="sap-icon://pie-chart"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiMediumMargin">
+                    <HBox alignItems="Center" class="sapUiSmallMarginBottom">
+                      <core:Icon src="sap-icon://circle-task-2" color="#107e3e" size="1rem" class="sapUiTinyMarginEnd"/>
+                      <Text text="Active" class="szAdminLegendLabel"/>
+                      <ToolbarSpacer/>
+                      <Text text="{ui>/admin/overview/activeUsers}" class="szAdminLegendValue"/>
+                    </HBox>
+                    <ProgressIndicator
+                      percentValue="{= parseInt(${ui>/admin/overview/activePercent}, 10) || 0 }"
+                      displayValue="{ui>/admin/overview/activePercent}"
+                      state="Success"
+                      class="sapUiSmallMarginBottom"/>
+                    <HBox alignItems="Center" class="sapUiSmallMarginTop sapUiSmallMarginBottom">
+                      <core:Icon src="sap-icon://circle-task-2" color="#bb0000" size="1rem" class="sapUiTinyMarginEnd"/>
+                      <Text text="Inactive" class="szAdminLegendLabel"/>
+                      <ToolbarSpacer/>
+                      <Text text="{ui>/admin/overview/inactiveUsers}" class="szAdminLegendValue"/>
+                    </HBox>
+                    <ProgressIndicator
+                      percentValue="{= ${ui>/admin/overview/users} > 0 ? Math.round((${ui>/admin/overview/inactiveUsers} / ${ui>/admin/overview/users}) * 100) : 0 }"
+                      displayValue="{= ${ui>/admin/overview/users} > 0 ? Math.round((${ui>/admin/overview/inactiveUsers} / ${ui>/admin/overview/users}) * 100) + '%' : '0%' }"
+                      state="Error"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <f:Card class="szContentCard">
+                <f:header>
+                  <card:Header title="Quick Actions" subtitle="Common admin tasks" iconSrc="sap-icon://action-settings"/>
+                </f:header>
+                <f:content>
+                  <VBox class="sapUiSmallMargin szAdminQuickActions">
+                    <Button text="Invite a new user"
+                            icon="sap-icon://add-employee"
+                            type="Transparent"
+                            press=".onAdminInviteUserFromHome"
+                            class="szAdminQuickBtn"/>
+                    <Button text="Create a role collection"
+                            icon="sap-icon://add"
+                            type="Transparent"
+                            press=".onAdminCreateRoleCollectionFromHome"
+                            class="szAdminQuickBtn"/>
+                    <Button text="Browse all users"
+                            icon="sap-icon://employee"
+                            type="Transparent"
+                            press=".onAdminTileUsers"
+                            class="szAdminQuickBtn"/>
+                    <Button text="Browse role collections"
+                            icon="sap-icon://role"
+                            type="Transparent"
+                            press=".onAdminTileRoles"
+                            class="szAdminQuickBtn"/>
+                    <Button text="View audit logs"
+                            icon="sap-icon://document-text"
+                            type="Transparent"
+                            press=".onAdminTileAuditLogs"
+                            class="szAdminQuickBtn"/>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+            </l:Grid>
+
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › User Management ═══ -->
+        <Page id="adminUsersPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+
+            <!-- Breadcrumb + heading -->
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="User Management" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <VBox>
+                <Title text="User Management" level="H2"/>
+                <Text text="{= 'Manage ' + ${ui>/admin/users/total} + ' users in your IAS tenant.' }" class="szHomeSubtitle"/>
+              </VBox>
+              <HBox alignItems="Center">
+                <SearchField
+                  placeholder="Search users"
+                  width="240px"
+                  liveChange=".onAdminUserSearch"
+                  value="{ui>/admin/users/search}"
+                  class="sapUiTinyMarginEnd"/>
+                <Button text="Refresh" icon="sap-icon://refresh" type="Transparent" press=".onAdminReloadUsers" class="sapUiTinyMarginEnd"/>
+                <Button text="Invite User" icon="sap-icon://add-employee" type="Emphasized" press=".onAdminOpenInviteDialog"/>
+              </HBox>
+            </HBox>
+
+            <f:Card class="szAuditTableCard" busy="{ui>/admin/users/busy}" busyIndicatorDelay="200">
+              <f:content>
+                <Table
+                  id="adminUserTable"
+                  fixedLayout="false"
+                  class="szAuditTable"
+                  items="{ui>/admin/users/items}"
+                  growing="true"
+                  growingThreshold="50"
+                  mode="None">
+                  <columns>
+                    <Column hAlign="Begin"><Text text="Name"/></Column>
+                    <Column hAlign="Begin"><Text text="Email"/></Column>
+                    <Column hAlign="Begin" width="100px"><Text text="Status"/></Column>
+                    <Column hAlign="Begin" width="80px"><Text text="Groups"/></Column>
+                    <Column hAlign="Begin" width="180px"><Text text="Created"/></Column>
+                    <Column hAlign="End" width="220px"><Text text="Actions"/></Column>
+                  </columns>
+                  <ColumnListItem>
+                    <cells>
+                      <HBox alignItems="Center">
+                        <Avatar initials="{= (${ui>firstName}.charAt(0) + ${ui>lastName}.charAt(0)).toUpperCase() || ${ui>userName}.charAt(0).toUpperCase() }"
+                                displaySize="XS"
+                                backgroundColor="Accent6"
+                                class="sapUiTinyMarginEnd"/>
+                        <VBox>
+                          <Text text="{= (${ui>firstName} + ' ' + ${ui>lastName}).trim() || ${ui>userName} }" class="szAdminUserName"/>
+                          <Text text="{ui>userName}" class="szAdminUserHandle"/>
+                        </VBox>
+                      </HBox>
+                      <Text text="{ui>email}"/>
+                      <ObjectStatus
+                        text="{= ${ui>active} ? 'Active' : 'Inactive' }"
+                        state="{= ${ui>active} ? 'Success' : 'Error' }"/>
+                      <Text text="{ui>groups}"/>
+                      <Text text="{ path: 'ui>created', formatter: '.formatAuditTimestamp' }"/>
+                      <HBox justifyContent="End">
+                        <Button icon="sap-icon://detail-view" type="Transparent" tooltip="View / edit details" press=".onAdminUserOpen"/>
+                        <Button
+                          icon="{= ${ui>active} ? 'sap-icon://decline' : 'sap-icon://accept' }"
+                          type="Transparent"
+                          tooltip="{= ${ui>active} ? 'Deactivate' : 'Activate' }"
+                          press=".onAdminUserToggleActive"/>
+                        <Button icon="sap-icon://delete" type="Transparent" tooltip="Delete user" press=".onAdminUserDelete"/>
+                      </HBox>
+                    </cells>
+                  </ColumnListItem>
+                </Table>
+              </f:content>
+            </f:Card>
+
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › User Detail ═══ -->
+        <Page id="adminUserDetailPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Link text="User Management" press=".onAdminBackToUsers"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="{= (${ui>/admin/userDetail/firstName} + ' ' + ${ui>/admin/userDetail/lastName}).trim() || ${ui>/admin/userDetail/userName} }" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <HBox alignItems="Center">
+                <Avatar
+                  initials="{= (${ui>/admin/userDetail/firstName}.charAt(0) + ${ui>/admin/userDetail/lastName}.charAt(0)).toUpperCase() || ${ui>/admin/userDetail/userName}.charAt(0).toUpperCase() }"
+                  displaySize="L"
+                  backgroundColor="Accent6"
+                  class="sapUiSmallMarginEnd"/>
+                <VBox>
+                  <Title text="{= (${ui>/admin/userDetail/firstName} + ' ' + ${ui>/admin/userDetail/lastName}).trim() || ${ui>/admin/userDetail/userName} }" level="H2"/>
+                  <Text text="{ui>/admin/userDetail/email}" class="szHomeSubtitle"/>
+                </VBox>
+              </HBox>
+              <HBox alignItems="Center">
+                <ObjectStatus
+                  text="{= ${ui>/admin/userDetail/active} ? 'Active' : 'Inactive' }"
+                  state="{= ${ui>/admin/userDetail/active} ? 'Success' : 'Error' }"
+                  class="sapUiSmallMarginEnd"/>
+                <Button
+                  text="{= ${ui>/admin/userDetail/active} ? 'Deactivate' : 'Activate' }"
+                  icon="{= ${ui>/admin/userDetail/active} ? 'sap-icon://decline' : 'sap-icon://accept' }"
+                  type="Transparent"
+                  press=".onAdminUserDetailToggleActive"
+                  class="sapUiTinyMarginEnd"/>
+                <Button text="Save" icon="sap-icon://save" type="Emphasized" press=".onAdminUserDetailSave"/>
+              </HBox>
+            </HBox>
+
+            <f:Card class="szContentCard" busy="{ui>/admin/userDetail/busy}" busyIndicatorDelay="200">
+              <f:header><card:Header title="Profile" iconSrc="sap-icon://employee"/></f:header>
+              <f:content>
+                <VBox class="sapUiMediumMargin">
+                  <l:Grid defaultSpan="L6 M6 S12" hSpacing="1" vSpacing="1">
+                    <VBox>
+                      <Label text="User Name (login)" design="Bold"/>
+                      <Input value="{ui>/admin/userDetail/userName}" enabled="false"/>
+                    </VBox>
+                    <VBox>
+                      <Label text="Email" design="Bold"/>
+                      <Input value="{ui>/admin/userDetail/email}" type="Email"/>
+                    </VBox>
+                    <VBox>
+                      <Label text="First Name" design="Bold"/>
+                      <Input value="{ui>/admin/userDetail/firstName}"/>
+                    </VBox>
+                    <VBox>
+                      <Label text="Last Name" design="Bold"/>
+                      <Input value="{ui>/admin/userDetail/lastName}"/>
+                    </VBox>
+                    <VBox>
+                      <Label text="Created" design="Bold"/>
+                      <Text text="{ path: 'ui>/admin/userDetail/created', formatter: '.formatAuditTimestamp' }"/>
+                    </VBox>
+                    <VBox>
+                      <Label text="IAS User ID" design="Bold"/>
+                      <Text text="{ui>/admin/userDetail/id}" class="szAdminUserHandle"/>
+                    </VBox>
+                  </l:Grid>
+                </VBox>
+              </f:content>
+            </f:Card>
+
+            <f:Card class="szContentCard sapUiSmallMarginTop">
+              <f:header>
+                <card:Header
+                  title="BTP Role Collections"
+                  subtitle="{= ${ui>/admin/userDetail/roleCollections}.length + ' role collections assigned in this subaccount' }"
+                  iconSrc="sap-icon://role"/>
+              </f:header>
+              <f:content>
+                <VBox class="sapUiSmallMargin">
+                  <HBox alignItems="Center" class="sapUiSmallMarginBottom">
+                    <Select id="adminUserAddRCSelect" width="320px" class="sapUiTinyMarginEnd"
+                            forceSelection="false"
+                            items="{ui>/admin/roleCollections/items}">
+                      <core:Item key="{ui>name}" text="{ui>name}"/>
+                    </Select>
+                    <Button text="Assign Role Collection" icon="sap-icon://add" type="Default" press=".onAdminUserAssignRC"/>
+                  </HBox>
+                  <Table items="{ui>/admin/userDetail/roleCollections}" class="szAdminInlineTable" noDataText="No role collections assigned yet. The shadow user in BTP will be created when you assign one.">
+                    <columns>
+                      <Column><Text text="Role Collection"/></Column>
+                      <Column><Text text="Description"/></Column>
+                      <Column width="80px" hAlign="End"><Text text=""/></Column>
+                    </columns>
+                    <ColumnListItem>
+                      <cells>
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://role" color="#0a6ed1" class="sapUiTinyMarginEnd"/>
+                          <Text text="{ui>name}" class="szAdminUserName"/>
+                        </HBox>
+                        <Text text="{ui>description}"/>
+                        <Button icon="sap-icon://delete" type="Transparent" tooltip="Unassign" press=".onAdminUserUnassignRC"/>
+                      </cells>
+                    </ColumnListItem>
+                  </Table>
+                </VBox>
+              </f:content>
+            </f:Card>
+
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › Role Collections (BTP) ═══ -->
+        <Page id="adminRolesPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="Role Collections" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <VBox>
+                <Title text="Role Collections" level="H2"/>
+                <Text text="{= ${ui>/admin/roleCollections/total} + ' BTP role collections in this subaccount.' }" class="szHomeSubtitle"/>
+              </VBox>
+              <HBox alignItems="Center">
+                <SearchField
+                  placeholder="Search role collections"
+                  width="260px"
+                  liveChange=".onAdminRoleCollectionSearch"
+                  value="{ui>/admin/roleCollections/search}"
+                  class="sapUiTinyMarginEnd"/>
+                <Button text="Refresh" icon="sap-icon://refresh" type="Transparent" press=".onAdminReloadRoleCollections" class="sapUiTinyMarginEnd"/>
+                <Button text="Create Role Collection" icon="sap-icon://add" type="Emphasized" press=".onAdminOpenCreateRoleCollectionDialog"/>
+              </HBox>
+            </HBox>
+
+            <MessageStrip
+              text="Role collections aren't loaded — bind the XSUAA apiaccess service (syzygy-launchpad-xsuaa-api) and redeploy."
+              type="Warning"
+              showIcon="true"
+              visible="{= !${ui>/admin/overview/btpHealthy} }"
+              class="sapUiSmallMarginBottom"/>
+
+            <f:Card class="szAuditTableCard" busy="{ui>/admin/roleCollections/busy}" busyIndicatorDelay="200">
+              <f:content>
+                <Table
+                  fixedLayout="false"
+                  class="szAuditTable"
+                  items="{ui>/admin/roleCollections/items}"
+                  growing="true"
+                  growingThreshold="50"
+                  noDataText="No role collections found.">
+                  <columns>
+                    <Column hAlign="Begin"><Text text="Role Collection"/></Column>
+                    <Column hAlign="Begin"><Text text="Description"/></Column>
+                    <Column hAlign="Begin" width="120px"><Text text="Roles"/></Column>
+                    <Column hAlign="Begin" width="120px"><Text text="Source"/></Column>
+                    <Column hAlign="End" width="180px"><Text text="Actions"/></Column>
+                  </columns>
+                  <ColumnListItem>
+                    <cells>
+                      <HBox alignItems="Center">
+                        <core:Icon src="sap-icon://role" color="#0a6ed1" class="sapUiTinyMarginEnd"/>
+                        <Text text="{ui>name}" class="szAdminUserName"/>
+                      </HBox>
+                      <Text text="{ui>description}"/>
+                      <Text text="{ui>roleCount}"/>
+                      <ObjectStatus
+                        text="{= ${ui>isReadOnly} ? 'Built-in' : 'Custom' }"
+                        state="{= ${ui>isReadOnly} ? 'Information' : 'Success' }"/>
+                      <HBox justifyContent="End">
+                        <Button icon="sap-icon://detail-view" type="Transparent" tooltip="View details" press=".onAdminRoleCollectionOpen"/>
+                        <Button icon="sap-icon://delete" type="Transparent" tooltip="Delete role collection"
+                                enabled="{= !${ui>isReadOnly} }"
+                                press=".onAdminRoleCollectionDelete"/>
+                      </HBox>
+                    </cells>
+                  </ColumnListItem>
+                </Table>
+              </f:content>
+            </f:Card>
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › Role Collection Detail ═══ -->
+        <Page id="adminRoleDetailPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Link text="Role Collections" press=".onAdminBackToRoles"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="{ui>/admin/roleCollectionDetail/name}" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <HBox alignItems="Center">
+                <core:Icon src="sap-icon://role" color="#0a6ed1" size="2rem" class="sapUiSmallMarginEnd"/>
+                <VBox>
+                  <Title text="{ui>/admin/roleCollectionDetail/name}" level="H2"/>
+                  <Text text="{ui>/admin/roleCollectionDetail/description}" class="szHomeSubtitle"/>
+                </VBox>
+              </HBox>
+              <ObjectStatus
+                text="{= ${ui>/admin/roleCollectionDetail/isReadOnly} ? 'Built-in (read-only)' : 'Custom' }"
+                state="{= ${ui>/admin/roleCollectionDetail/isReadOnly} ? 'Information' : 'Success' }"/>
+            </HBox>
+
+            <f:Card class="szContentCard" busy="{ui>/admin/roleCollectionDetail/busy}" busyIndicatorDelay="200">
+              <f:header>
+                <card:Header
+                  title="Roles included"
+                  subtitle="{= ${ui>/admin/roleCollectionDetail/roles}.length + ' role references' }"
+                  iconSrc="sap-icon://key-user-settings"/>
+              </f:header>
+              <f:content>
+                <Table
+                  items="{ui>/admin/roleCollectionDetail/roles}"
+                  class="szAdminInlineTable"
+                  noDataText="This role collection contains no role references.">
+                  <columns>
+                    <Column><Text text="Role Template"/></Column>
+                    <Column><Text text="Application"/></Column>
+                    <Column><Text text="Description"/></Column>
+                  </columns>
+                  <ColumnListItem>
+                    <cells>
+                      <Text text="{ui>name}" class="szAdminUserName"/>
+                      <Text text="{ui>applicationId}"/>
+                      <Text text="{ui>description}"/>
+                    </cells>
+                  </ColumnListItem>
+                </Table>
+              </f:content>
+            </f:Card>
+
+            <Text text="To edit which roles a role collection contains, use the BTP cockpit (Security › Role Collections). This screen lets you create / delete collections and assign them to users."
+                  class="szAdminTileDesc sapUiSmallMarginTop"/>
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › Application Access ═══ -->
+        <Page id="adminAppsPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="Application Access" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <VBox>
+                <Title text="Application Access" level="H2"/>
+                <Text text="{= 'Showing ' + ${ui>/admin/apps/total} + ' registered applications in IAS.' }" class="szHomeSubtitle"/>
+              </VBox>
+              <Button text="Refresh" icon="sap-icon://refresh" type="Transparent" press=".onAdminReloadApps"/>
+            </HBox>
+
+            <f:Card class="szAuditTableCard" busy="{ui>/admin/apps/busy}" busyIndicatorDelay="200">
+              <f:content>
+                <Table
+                  fixedLayout="false"
+                  class="szAuditTable"
+                  items="{ui>/admin/apps/items}"
+                  growing="true"
+                  growingThreshold="50">
+                  <columns>
+                    <Column hAlign="Begin"><Text text="Application Name"/></Column>
+                    <Column hAlign="Begin" width="160px"><Text text="Type"/></Column>
+                    <Column hAlign="Begin"><Text text="Home URL"/></Column>
+                    <Column hAlign="Begin" width="100px"><Text text="Status"/></Column>
+                    <Column hAlign="End" width="120px"><Text text="Actions"/></Column>
+                  </columns>
+                  <ColumnListItem>
+                    <cells>
+                      <HBox alignItems="Center">
+                        <core:Icon src="sap-icon://grid" color="#0a6ed1" class="sapUiTinyMarginEnd"/>
+                        <Text text="{ui>displayName}" class="szAdminUserName"/>
+                      </HBox>
+                      <Text text="{ui>appType}"/>
+                      <Link text="{ui>homeUrl}" href="{ui>homeUrl}" target="_blank" wrapping="false"/>
+                      <ObjectStatus
+                        text="{= ${ui>active} ? 'Active' : 'Inactive' }"
+                        state="{= ${ui>active} ? 'Success' : 'Error' }"/>
+                      <HBox justifyContent="End">
+                        <Button icon="sap-icon://detail-view" type="Transparent" tooltip="View details" press=".onAdminAppOpen"/>
+                      </HBox>
+                    </cells>
+                  </ColumnListItem>
+                </Table>
+              </f:content>
+            </f:Card>
           </VBox>
         </Page>
 

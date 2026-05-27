@@ -101,6 +101,96 @@ sap.ui.define([
             userActionsSub:  "0% of total",
             failedActionsSub:"0% of total"
           }
+        },
+        admin: {
+          // Dashboard overview KPIs (populated by GET /api/admin/getOverview())
+          overview: {
+            users:           "0",
+            activeUsers:     "0",
+            inactiveUsers:   "0",
+            groups:          "0",
+            applications:    "0",
+            roleCollections: "0",
+            activePercent:   "0%",
+            iasHost:         "",
+            iasOrigin:       "",
+            healthy:         false,
+            btpHealthy:      false,
+            healthyText:     "Checking…",
+            btpHealthyText:  "Checking…",
+            error:           "",
+            loaded:          false
+          },
+          // Users sub-page
+          users: {
+            search:  "",
+            items:   [],
+            total:   0,
+            busy:    false,
+            loaded:  false
+          },
+          // User detail sub-page
+          userDetail: {
+            id:               "",
+            userName:         "",
+            email:            "",
+            firstName:        "",
+            lastName:         "",
+            active:           true,
+            created:          "",
+            groups:           [],          // IAS SCIM groups (kept for compatibility)
+            roleCollections:  [],          // BTP role-collection assignments
+            busy:             false
+          },
+          // Invite user dialog
+          invite: {
+            firstName:           "",
+            lastName:            "",
+            email:               "",
+            active:              true,
+            // BTP role-collection multi-select on the invite dialog
+            availableRC:         [],       // [{name, description}]
+            selectedRCKeys:      [],       // string[] of rc names
+            busy:                false
+          },
+          // BTP Role Collections sub-page (replaces the IAS-groups Roles page)
+          roleCollections: {
+            search:  "",
+            items:   [],                   // mapped RoleCollectionSummary[]
+            total:   0,
+            busy:    false,
+            loaded:  false
+          },
+          // Role-collection detail sub-page
+          roleCollectionDetail: {
+            name:        "",
+            description: "",
+            isReadOnly:  false,
+            roles:       [],               // [{name, applicationId, description, ...}]
+            raw:         "",
+            busy:        false
+          },
+          // Create role-collection dialog
+          newRoleCollection: {
+            name:        "",
+            description: "",
+            busy:        false
+          },
+          // Applications sub-page
+          apps: {
+            items:  [],
+            total:  0,
+            busy:   false,
+            loaded: false
+          },
+          appDetail: {
+            id:          "",
+            displayName: "",
+            raw:         "",
+            busy:        false
+          },
+          // Sub-page breadcrumb title (e.g. "User Management")
+          subTitle: ""
         }
       }), "ui");
     }

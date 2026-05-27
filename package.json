@@ -24,7 +24,10 @@
   "cds": {
     "requires": {
       "auth": {
-        "[production]": { "kind": "xsuaa" },
+        "[production]": {
+          "kind": "xsuaa",
+          "vcap": { "name": "syzygy-launchpad-auth" }
+        },
         "[development]": { "kind": "mocked" }
       },
       "db": {

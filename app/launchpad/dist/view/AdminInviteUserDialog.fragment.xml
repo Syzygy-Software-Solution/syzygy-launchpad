@@ -1,0 +1,48 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+
+  <Dialog
+    id="adminInviteUserDialog"
+    title="Invite User"
+    contentWidth="520px"
+    busy="{ui>/admin/invite/busy}">
+
+    <content>
+      <VBox class="sapUiMediumMargin">
+        <Text text="A new user will be created in your IAS tenant. Assigning at least one BTP role collection here creates the matching shadow user in your subaccount immediately — otherwise the shadow user will only appear after the user's first login." class="sapUiSmallMarginBottom"/>
+
+        <Label text="First Name" design="Bold" class="sapUiTinyMarginBottom"/>
+        <Input value="{ui>/admin/invite/firstName}" placeholder="John" class="sapUiSmallMarginBottom"/>
+
+        <Label text="Last Name" design="Bold" class="sapUiTinyMarginBottom"/>
+        <Input value="{ui>/admin/invite/lastName}" placeholder="Doe" class="sapUiSmallMarginBottom"/>
+
+        <Label text="Email *" design="Bold" required="true" class="sapUiTinyMarginBottom"/>
+        <Input value="{ui>/admin/invite/email}" type="Email" placeholder="john.doe@example.com" class="sapUiSmallMarginBottom"/>
+
+        <CheckBox text="User is active" selected="{ui>/admin/invite/active}" class="sapUiSmallMarginBottom"/>
+
+        <Label text="Pre-assign BTP Role Collections" design="Bold" class="sapUiTinyMarginBottom"/>
+        <Text text="Optional. Assigning at least one role collection ensures the user appears in the BTP subaccount user list right away."
+              class="sapUiTinyMarginBottom"/>
+        <MultiComboBox
+          width="100%"
+          items="{ui>/admin/roleCollections/items}"
+          selectedKeys="{ui>/admin/invite/selectedRCKeys}"
+          placeholder="Choose role collections (optional)">
+          <core:Item key="{ui>name}" text="{ui>name}"/>
+        </MultiComboBox>
+      </VBox>
+    </content>
+
+    <beginButton>
+      <Button text="Invite" type="Emphasized" press=".onAdminInviteUserSubmit"/>
+    </beginButton>
+    <endButton>
+      <Button text="Cancel" press=".onAdminInviteUserCancel"/>
+    </endButton>
+  </Dialog>
+
+</core:FragmentDefinition>
+
