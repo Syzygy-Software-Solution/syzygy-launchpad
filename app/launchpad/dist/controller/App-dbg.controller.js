@@ -1141,7 +1141,10 @@ sap.ui.define([
       }
       this.byId("mainNav").to(this.byId("adminUserDetailPage"));
       this._loadAdminUserDetail(u.id);
-      this._loadAdminUserRoleCollections(u.userName || u.email);
+      // BTP shadow users from a custom IAS tenant are keyed by *email*,
+      // not by the IAS technical userName (which may be a display login like
+      // "Sai Srivatsav"). Querying by userName returns 403 "Access is denied".
+      this._loadAdminUserRoleCollections(u.email || u.userName);
     },
 
     _loadAdminUserDetail: async function (sId) {
@@ -1662,8 +1665,9 @@ sap.ui.define([
     onAdminUserAssignRC: async function () {
       const sel = this.byId("adminUserAddRCSelect");
       const rcName  = sel && sel.getSelectedKey();
-      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
-                    || this._uiModel.getProperty("/admin/userDetail/email");
+      // BTP shadow users are keyed by email — prefer email over IAS userName.
+      const userName = this._uiModel.getProperty("/admin/userDetail/email")
+                    || this._uiModel.getProperty("/admin/userDetail/userName");
       if (!rcName)   { MessageToast.show("Pick a role collection first"); return; }
       if (!userName) return;
       this._uiModel.setProperty("/admin/userDetail/busy", true);
@@ -1682,8 +1686,9 @@ sap.ui.define([
       const ctx = oEvent.getSource().getBindingContext("ui");
       if (!ctx) return;
       const rc = ctx.getObject();
-      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
-                    || this._uiModel.getProperty("/admin/userDetail/email");
+      // BTP shadow users are keyed by email — prefer email over IAS userName.
+      const userName = this._uiModel.getProperty("/admin/userDetail/email")
+                    || this._uiModel.getProperty("/admin/userDetail/userName");
       if (!userName || !rc.name) return;
       this._uiModel.setProperty("/admin/userDetail/busy", true);
       try {

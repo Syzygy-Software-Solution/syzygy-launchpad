@@ -173,14 +173,25 @@ module.exports = cds.service.impl(async function () {
     const assignmentErrors = [];
     if (rcs.length) {
       if (!btp.isConfigured()) {
-        assignmentErrors.push('BTP apiaccess binding is not configured — role collections were not assigned.');
+        assignmentErrors.push({ roleCollection: '*', error: 'BTP apiaccess binding is not configured — role collections were not assigned.' });
       } else {
-        const origin = _origin();
+        // Try both common origins so the shadow user lands wherever the
+        // subaccount trust accepts it. We succeed if either origin works.
+        const origins = Array.from(new Set([_origin(), 'sap.default', 'sap.custom']));
         for (const rc of rcs) {
-          try {
-            await btp.assignRoleCollection({ userName: effectiveUserName, origin, roleCollectionName: rc });
-          } catch (e) {
-            assignmentErrors.push(`${rc}: ${e.message}`);
+          let lastErr = null;
+          let ok = false;
+          for (const origin of origins) {
+            try {
+              await btp.assignRoleCollection({ userName: effectiveUserName, origin, roleCollectionName: rc });
+              ok = true;
+              break;
+            } catch (e) {
+              lastErr = e;
+            }
+          }
+          if (!ok) {
+            assignmentErrors.push({ roleCollection: rc, error: (lastErr && lastErr.message) || 'assignment failed' });
           }
         }
       }
@@ -346,21 +357,38 @@ module.exports = cds.service.impl(async function () {
 
   this.on('getUserRoleCollections', async (req) => {
     if (!btp.isConfigured()) return { items: [], totalResults: 0 };
-    try {
-      const list = await btp.listUserRoleCollections({
-        userName: req.data.userName,
-        origin:   _origin()
-      });
-      // The endpoint returns role-collection-shaped objects; map the same way.
-      const items = list.map(_mapRoleCollectionSummary);
-      items.sort((a, b) => a.name.localeCompare(b.name));
-      return { items, totalResults: items.length };
-    } catch (e) {
-      // Common case: the user has never logged in and has no shadow user yet.
-      // Treat 404 as "no assignments" rather than a hard error.
-      if (e.status === 404) return { items: [], totalResults: 0 };
-      return _reject(req, e);
+    // Role collections may be assigned under any of several trust origins
+    // (Default IDP `sap.default`, custom IAS `sap.custom`, or a custom
+    // origin key). Query each known origin and merge the results, since
+    // BTP requires `origin` to be specified on this endpoint.
+    const origins = Array.from(new Set([_origin(), 'sap.default', 'sap.custom']));
+    const seen = new Set();
+    const merged = [];
+    let anyOk = false;
+    let lastErr = null;
+    for (const origin of origins) {
+      try {
+        const list = await btp.listUserRoleCollections({
+          userName: req.data.userName,
+          origin
+        });
+        anyOk = true;
+        for (const rc of list) {
+          const key = rc.name || rc.displayName;
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          merged.push(rc);
+        }
+      } catch (e) {
+        // 404 / 403 just mean "no shadow user under this origin".
+        if (e.status === 404 || e.status === 403) { anyOk = true; continue; }
+        lastErr = e;
+      }
     }
+    if (!anyOk && lastErr) return _reject(req, lastErr);
+    const items = merged.map(_mapRoleCollectionSummary);
+    items.sort((a, b) => a.name.localeCompare(b.name));
+    return { items, totalResults: items.length };
   });
 
   this.on('createRoleCollection', async (req) => {
@@ -384,19 +412,37 @@ module.exports = cds.service.impl(async function () {
     if (!btp.isConfigured()) return req.reject(503, 'BTP apiaccess binding is not configured');
     const { userName, roleCollectionName } = req.data;
     if (!userName || !roleCollectionName) return req.reject(400, 'userName and roleCollectionName are required');
-    try {
-      await btp.assignRoleCollection({ userName, origin: _origin(), roleCollectionName });
-      return true;
-    } catch (e) { return _reject(req, e); }
+    // Try the configured origin first; fall back to the other common origins
+    // so the assignment succeeds whichever IDP the user authenticates through.
+    const origins = Array.from(new Set([_origin(), 'sap.default', 'sap.custom']));
+    let lastErr = null;
+    for (const origin of origins) {
+      try {
+        await btp.assignRoleCollection({ userName, origin, roleCollectionName });
+        return true;
+      } catch (e) { lastErr = e; }
+    }
+    return _reject(req, lastErr || new Error('assignRoleCollection failed'));
   });
 
   this.on('unassignRoleCollection', async (req) => {
     if (!btp.isConfigured()) return req.reject(503, 'BTP apiaccess binding is not configured');
     const { userName, roleCollectionName } = req.data;
     if (!userName || !roleCollectionName) return req.reject(400, 'userName and roleCollectionName are required');
-    try {
-      await btp.unassignRoleCollection({ userName, origin: _origin(), roleCollectionName });
-      return true;
-    } catch (e) { return _reject(req, e); }
+    // Attempt removal under every known origin — ignore not-found per origin.
+    const origins = Array.from(new Set([_origin(), 'sap.default', 'sap.custom']));
+    let anyOk = false;
+    let lastErr = null;
+    for (const origin of origins) {
+      try {
+        await btp.unassignRoleCollection({ userName, origin, roleCollectionName });
+        anyOk = true;
+      } catch (e) {
+        if (e.status === 404) { continue; }
+        lastErr = e;
+      }
+    }
+    if (!anyOk && lastErr) return _reject(req, lastErr);
+    return true;
   });
 });

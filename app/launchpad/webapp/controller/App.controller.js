@@ -1141,7 +1141,10 @@ sap.ui.define([
       }
       this.byId("mainNav").to(this.byId("adminUserDetailPage"));
       this._loadAdminUserDetail(u.id);
-      this._loadAdminUserRoleCollections(u.userName || u.email);
+      // BTP shadow users from a custom IAS tenant are keyed by *email*,
+      // not by the IAS technical userName (which may be a display login like
+      // "Sai Srivatsav"). Querying by userName returns 403 "Access is denied".
+      this._loadAdminUserRoleCollections(u.email || u.userName);
     },
 
     _loadAdminUserDetail: async function (sId) {
@@ -1285,7 +1288,11 @@ sap.ui.define([
         this._adminInviteDialog.close();
         if (errs.length) {
           const lines = errs.map(e => `• ${e.roleCollection}: ${e.error}`).join("\n");
-          MessageBox.warning(`User created in IAS, but some role-collection assignments failed:\n\n${lines}`);
+          const has403 = errs.some(e => /403|Access is denied/i.test(e.error || ""));
+          const hint = has403
+            ? "\n\nThe BTP API client is missing scopes. In the BTP Cockpit, go to Security → Users, filter by OAuth2ClientCredentials, open the service user 'sb-syzygy-launchpad-api-…' and assign the role collection 'User and Role Administrator'."
+            : "";
+          MessageBox.warning(`User created in IAS, but some role-collection assignments failed:\n\n${lines}${hint}`);
         } else if (rcKeys.length) {
           MessageToast.show(`User invited and assigned to ${rcKeys.length} role collection(s)`);
         } else {
@@ -1662,8 +1669,9 @@ sap.ui.define([
     onAdminUserAssignRC: async function () {
       const sel = this.byId("adminUserAddRCSelect");
       const rcName  = sel && sel.getSelectedKey();
-      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
-                    || this._uiModel.getProperty("/admin/userDetail/email");
+      // BTP shadow users are keyed by email — prefer email over IAS userName.
+      const userName = this._uiModel.getProperty("/admin/userDetail/email")
+                    || this._uiModel.getProperty("/admin/userDetail/userName");
       if (!rcName)   { MessageToast.show("Pick a role collection first"); return; }
       if (!userName) return;
       this._uiModel.setProperty("/admin/userDetail/busy", true);
@@ -1682,8 +1690,9 @@ sap.ui.define([
       const ctx = oEvent.getSource().getBindingContext("ui");
       if (!ctx) return;
       const rc = ctx.getObject();
-      const userName = this._uiModel.getProperty("/admin/userDetail/userName")
-                    || this._uiModel.getProperty("/admin/userDetail/email");
+      // BTP shadow users are keyed by email — prefer email over IAS userName.
+      const userName = this._uiModel.getProperty("/admin/userDetail/email")
+                    || this._uiModel.getProperty("/admin/userDetail/userName");
       if (!userName || !rc.name) return;
       this._uiModel.setProperty("/admin/userDetail/busy", true);
       try {

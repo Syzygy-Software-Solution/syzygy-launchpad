@@ -192,3 +192,18 @@ resources:
       config:
         xsappname: syzygy-launchpad-api-${org}-${space}
         tenant-mode: dedicated
+        # Scopes required to call the BTP Authorization & Trust Management
+        # REST API for *write* operations against users / role collections.
+        # Without these the API returns 403 "Access is denied" on PUT
+        # /sap/rest/authorization/v2/userRoleCollections and on shadow-user
+        # lookups. NOTE: simply listing them here is not always sufficient —
+        # in some subaccounts you ALSO have to grant the role collection
+        # "User and Role Administrator" to the OAuth2 client created by
+        # this binding (BTP Cockpit → Security → Users → filter
+        # OAuth2ClientCredentials → sb-syzygy-launchpad-api-…).
+        authorities:
+          - $XSAPPNAME.xs_user.write
+          - $XSAPPNAME.xs_user.read
+          - $XSAPPNAME.xs_authorization.write
+          - $XSAPPNAME.xs_authorization.read
+          - $XSAPPNAME.xs_idp.read
