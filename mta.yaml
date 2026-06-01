@@ -196,14 +196,18 @@ resources:
         # REST API for *write* operations against users / role collections.
         # Without these the API returns 403 "Access is denied" on PUT
         # /sap/rest/authorization/v2/userRoleCollections and on shadow-user
-        # lookups. NOTE: simply listing them here is not always sufficient —
-        # in some subaccounts you ALSO have to grant the role collection
-        # "User and Role Administrator" to the OAuth2 client created by
-        # this binding (BTP Cockpit → Security → Users → filter
-        # OAuth2ClientCredentials → sb-syzygy-launchpad-api-…).
+        # lookups.
+        #
+        # IMPORTANT: For the `apiaccess` plan these are FOREIGN scopes of the
+        # platform Authorization & Trust Management application — they must be
+        # listed WITHOUT the `$XSAPPNAME.` prefix. Using `$XSAPPNAME.xs_user.write`
+        # resolves to a scope on THIS app (syzygy-launchpad-api-…) which does
+        # not exist as a grantable platform scope, so the issued OAuth client
+        # token carries no real authorization and every write call returns
+        # 403 "Access is denied".
         authorities:
-          - $XSAPPNAME.xs_user.write
-          - $XSAPPNAME.xs_user.read
-          - $XSAPPNAME.xs_authorization.write
-          - $XSAPPNAME.xs_authorization.read
-          - $XSAPPNAME.xs_idp.read
+          - xs_user.write
+          - xs_user.read
+          - xs_authorization.write
+          - xs_authorization.read
+          - xs_idp.read

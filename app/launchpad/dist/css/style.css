@@ -664,3 +664,57 @@ html[data-sz-theme="sap_horizon_dark"] .szAdminTile {
 
 /* Inline tables inside detail cards (group memberships, role members) */
 .szAdminInlineTable.sapMList { border: 1px solid var(--sapList_BorderColor); border-radius: 6px; }
+
+/* ─── Administration › Security (roles & permissions) ─────────────────────── */
+/* Make the two-column grid fill the available page height so neither card
+   leaves large blank areas. */
+.szSecurityGrid { min-height: calc(100vh - 220px); }
+.szSecurityGrid > div { display: flex; }
+.szSecurityGrid .szContentCard { width: 100%; display: flex; flex-direction: column; }
+.szSecurityGrid .szContentCard .sapFCardContent { flex: 1 1 auto; min-height: 0; }
+
+/* Roles card — search + filters fixed at top, the list grows and scrolls. */
+.szSecurityRolesBody { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.szSecuritySearch { flex: 1 1 auto; }
+.szSecurityFilters .sapMSlt { min-width: 0; }
+.szSecurityRolesBody .szSecurityRoleList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 0.75rem 0.75rem;
+}
+.szSecurityRoleList.sapMList { border: 1px solid var(--sapList_BorderColor); border-radius: 8px; }
+.szSecurityRoleItem { cursor: pointer; }
+.szSecurityRoleName { font-weight: 600; font-size: 0.9rem; }
+.szSecurityRoleMeta { font-size: 0.75rem; color: var(--sapContent_LabelColor); margin-top: 0.1rem; }
+.szSecurityRoleChevron { color: var(--sapContent_NonInteractiveIconColor); }
+.szSecurityRoleList .sapMLIBSelected .szSecurityRoleName { color: var(--sapSelectedColor); }
+
+/* Detail card content fills its card height too. */
+.szSecurityDetailCard .sapFCardContent > .sapMVBox { height: 100%; }
+
+/* Permission editor empty state */
+.szSecurityEmpty { min-height: 320px; height: 100%; text-align: center; padding: 2rem; }
+.szSecurityEmptyIcon { color: var(--sapContent_NonInteractiveIconColor); }
+.szSecurityEmptyHint { color: var(--sapContent_LabelColor); max-width: 420px; }
+
+/* Permission editor detail */
+.szSecurityDetail { padding: 1rem 1.25rem 1.25rem; }
+.szSecurityDetailHeader { border-bottom: 1px solid var(--sapList_BorderColor); padding-bottom: 0.75rem; }
+.szSecurityFieldLabel { font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; }
+.szSecurityFieldHint { font-size: 0.72rem; color: var(--sapContent_LabelColor); margin-top: 0.2rem; }
+
+/* Permission toggle tiles */
+.szPermTile {
+  border: 1px solid var(--sapList_BorderColor);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  background: var(--sapTile_Background);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.szPermTile:hover {
+  border-color: var(--sapButton_Emphasized_Background);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.szPermName { font-weight: 600; font-size: 0.88rem; }
+.szPermHint { font-size: 0.72rem; color: var(--sapContent_LabelColor); }

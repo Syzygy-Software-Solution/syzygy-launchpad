@@ -37,4 +37,37 @@ service LaunchpadService @(path: '/odata/v4/launchpad') {
 
   // Saves/updates the display name for the currently logged-in user.
   action updateUserProfile(firstname: String, lastname: String) returns CurrentUser;
+
+  // ─── Security · Role & permission management ───────────────────────────────
+  // CRUD over the SecurityRoles table used by the Administration › Security
+  // screen. Reads happen through the projection; mutations go through actions
+  // so we can protect the 22 seeded (isSystem) roles from deletion server-side.
+  entity SecurityRoles as projection on db.SecurityRoles;
+
+  action createSecurityRole(
+    roleName    : String,
+    department  : String,
+    appId       : String,
+    description : String,
+    canRead     : Boolean,
+    canWrite    : Boolean,
+    canDelete   : Boolean,
+    canApprove  : Boolean,
+    canExecute  : Boolean
+  ) returns SecurityRoles;
+
+  action updateSecurityRole(
+    ID          : UUID,
+    roleName    : String,
+    department  : String,
+    appId       : String,
+    description : String,
+    canRead     : Boolean,
+    canWrite    : Boolean,
+    canDelete   : Boolean,
+    canApprove  : Boolean,
+    canExecute  : Boolean
+  ) returns SecurityRoles;
+
+  action deleteSecurityRole(ID: UUID) returns Boolean;
 }

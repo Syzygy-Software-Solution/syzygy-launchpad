@@ -190,7 +190,68 @@ sap.ui.define([
             busy:        false
           },
           // Sub-page breadcrumb title (e.g. "User Management")
-          subTitle: ""
+          subTitle: "",
+          // Security · role & permission management sub-page
+          security: {
+            search:        "",
+            roles:         [],   // all roles loaded from the backend
+            filteredRoles: [],   // roles after the search filter
+            total:         0,
+            filteredTotal: 0,
+            deptFilter:    "",   // "" ⇒ all departments
+            appFilter:     "__all__", // "__all__" | "__common__" | <appId>
+            busy:          false,
+            loaded:        false,
+            // Onboarded BTP apps for the "Application scope" dropdown.
+            // First entry is the "common role" sentinel (empty key).
+            apps:          [{ appId: "", displayName: "Common — all apps" }],
+            // Filter dropdown options (rebuilt as data loads).
+            deptFilterOptions: [
+              { key: "",                 text: "All departments" },
+              { key: "Comp Admin",       text: "Comp Admin" },
+              { key: "Sales",            text: "Sales" },
+              { key: "Finance",          text: "Finance" },
+              { key: "HR",               text: "HR" },
+              { key: "IT",               text: "IT" },
+              { key: "Sales Operations", text: "Sales Operations" }
+            ],
+            appFilterOptions: [
+              { key: "__all__",    text: "All applications" },
+              { key: "__common__", text: "Common (all apps)" }
+            ],
+            // Hardcoded department list (mirrors the source matrix).
+            departments: [
+              { key: "",                 text: "— None —" },
+              { key: "Comp Admin",       text: "Comp Admin" },
+              { key: "Sales",            text: "Sales" },
+              { key: "Finance",          text: "Finance" },
+              { key: "HR",               text: "HR" },
+              { key: "IT",               text: "IT" },
+              { key: "Sales Operations", text: "Sales Operations" }
+            ],
+            detail: {
+              ID:           "",
+              roleName:     "",
+              department:   "",
+              appId:        "",
+              description:  "",
+              isSystem:     false,
+              canRead:      false,
+              canWrite:     false,
+              canDelete:    false,
+              canApprove:   false,
+              canExecute:   false,
+              hasSelection: false,
+              busy:         false
+            },
+            newRole: {
+              roleName:    "",
+              department:  "",
+              appId:       "",
+              description: "",
+              busy:        false
+            }
+          }
         }
       }), "ui");
     }

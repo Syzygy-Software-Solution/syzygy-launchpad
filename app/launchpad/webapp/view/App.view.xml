@@ -722,16 +722,16 @@
                 </f:content>
               </f:Card>
 
-              <f:Card class="szAdminTile szAdminTileDisabled" press=".onAdminTileSystemConfig">
+              <f:Card class="szAdminTile" press=".onAdminTileSecurity" semanticRole="ListItem">
                 <f:header>
                   <card:Header
-                    title="System Configuration"
-                    subtitle="Coming soon"
-                    iconSrc="sap-icon://settings"/>
+                    title="Security"
+                    subtitle="Roles &amp; permissions"
+                    iconSrc="sap-icon://shield"/>
                 </f:header>
                 <f:content>
                   <VBox class="sapUiSmallMargin">
-                    <Text text="Tenant-wide branding, session timeouts and feature flags." class="szAdminTileDesc"/>
+                    <Text text="Define roles and assign read, write, delete, approve and execute permissions per app." class="szAdminTileDesc"/>
                   </VBox>
                 </f:content>
               </f:Card>
@@ -1217,6 +1217,242 @@
                 </Table>
               </f:content>
             </f:Card>
+          </VBox>
+        </Page>
+
+        <!-- ═══ Administration › Security (Roles & Permissions) ═══ -->
+        <Page id="adminSecurityPage" showHeader="false" class="szAdminPage sapUiNoContentPadding">
+          <VBox class="szAdminContent">
+            <HBox alignItems="Center" class="szAdminBreadcrumb">
+              <Link text="Administration" press=".onAdminBackToHome"/>
+              <core:Icon src="sap-icon://slim-arrow-right" size="0.7rem" class="szAdminCrumbSep"/>
+              <Text text="Security" class="szAdminCrumbCurrent"/>
+            </HBox>
+
+            <HBox justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginBottom szAdminSubHeader">
+              <VBox>
+                <Title text="Security" level="H2"/>
+                <Text text="Pick a role, then grant the permissions it should carry. Roles can target a single app or apply across all of them." class="szHomeSubtitle"/>
+              </VBox>
+              <HBox alignItems="Center">
+                <Button text="Refresh" icon="sap-icon://refresh" type="Transparent" press=".onSecurityReload"/>
+              </HBox>
+            </HBox>
+
+            <l:Grid defaultSpan="L4 M5 S12" hSpacing="1" vSpacing="1" containerQuery="true" class="szSecurityGrid">
+
+              <!-- Role picker -->
+              <f:Card class="szContentCard szSecurityRolesCard" busy="{ui>/admin/security/busy}" busyIndicatorDelay="200">
+                <f:header>
+                  <card:Header
+                    title="Roles"
+                    subtitle="{= ${ui>/admin/security/filteredTotal} + ' of ' + ${ui>/admin/security/total} + ' roles shown' }"
+                    iconSrc="sap-icon://user-settings"/>
+                </f:header>
+                <f:content>
+                  <VBox class="szSecurityRolesBody">
+                    <HBox alignItems="Center" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginTop sapUiTinyMarginBottom">
+                      <SearchField
+                        placeholder="Search roles"
+                        liveChange=".onSecurityRoleSearch"
+                        value="{ui>/admin/security/search}"
+                        class="szSecuritySearch"/>
+                      <Button
+                        text="Add Role"
+                        icon="sap-icon://add"
+                        type="Emphasized"
+                        press=".onSecurityOpenCreateDialog"
+                        class="sapUiTinyMarginBegin"/>
+                    </HBox>
+                    <HBox class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiTinyMarginBottom szSecurityFilters">
+                      <Select
+                        forceSelection="true"
+                        selectedKey="{ui>/admin/security/deptFilter}"
+                        change=".onSecurityFilterChange"
+                        items="{ui>/admin/security/deptFilterOptions}"
+                        width="50%"
+                        class="sapUiTinyMarginEnd"
+                        tooltip="Filter by department">
+                        <core:Item key="{ui>key}" text="{ui>text}"/>
+                      </Select>
+                      <Select
+                        forceSelection="true"
+                        selectedKey="{ui>/admin/security/appFilter}"
+                        change=".onSecurityFilterChange"
+                        items="{ui>/admin/security/appFilterOptions}"
+                        width="50%"
+                        tooltip="Filter by application scope">
+                        <core:Item key="{ui>key}" text="{ui>text}"/>
+                      </Select>
+                    </HBox>
+                    <List
+                      items="{ui>/admin/security/filteredRoles}"
+                      mode="SingleSelectMaster"
+                      includeItemInSelection="true"
+                      selectionChange=".onSecurityRoleSelect"
+                      growing="true"
+                      growingThreshold="100"
+                      noDataText="No roles match the current filters."
+                      class="szSecurityRoleList">
+                      <CustomListItem type="Active" class="szSecurityRoleItem">
+                        <HBox justifyContent="SpaceBetween" alignItems="Center" width="100%" class="sapUiTinyMargin">
+                          <VBox>
+                            <HBox alignItems="Center">
+                              <Text text="{ui>roleName}" class="szSecurityRoleName"/>
+                              <ObjectStatus
+                                text="System"
+                                state="Information"
+                                visible="{ui>isSystem}"
+                                class="sapUiTinyMarginBegin"/>
+                            </HBox>
+                            <Text text="{= (${ui>department} || 'No department') + ' · ' + (${ui>appId} ? ${ui>appId} : 'Common (all apps)') }" class="szSecurityRoleMeta"/>
+                          </VBox>
+                          <core:Icon src="sap-icon://slim-arrow-right" size="0.85rem" class="szSecurityRoleChevron"/>
+                        </HBox>
+                      </CustomListItem>
+                    </List>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+              <!-- Permission editor -->
+              <f:Card class="szContentCard szSecurityDetailCard">
+                <f:layoutData>
+                  <l:GridData span="L8 M7 S12"/>
+                </f:layoutData>
+                <f:content>
+                  <VBox>
+                  <!-- Empty state -->
+                  <VBox visible="{= !${ui>/admin/security/detail/hasSelection} }" class="szSecurityEmpty" alignItems="Center" justifyContent="Center">
+                    <core:Icon src="sap-icon://shield" size="2.75rem" class="szSecurityEmptyIcon"/>
+                    <Title text="Select a role to begin" level="H3" class="sapUiSmallMarginTop"/>
+                    <Text text="Choose a role on the left to view and assign its permissions, or create a brand-new role." class="szSecurityEmptyHint sapUiTinyMarginTop"/>
+                  </VBox>
+
+                  <!-- Detail / editor -->
+                  <VBox visible="{ui>/admin/security/detail/hasSelection}" class="szSecurityDetail">
+                    <HBox justifyContent="SpaceBetween" alignItems="Center" class="szSecurityDetailHeader">
+                      <HBox alignItems="Center">
+                        <core:Icon src="sap-icon://shield" color="#0a6ed1" size="1.75rem" class="sapUiSmallMarginEnd"/>
+                        <VBox>
+                          <Title text="{ui>/admin/security/detail/roleName}" level="H3"/>
+                          <ObjectStatus
+                            text="{= ${ui>/admin/security/detail/isSystem} ? 'System role (cannot be deleted)' : 'Custom role' }"
+                            state="{= ${ui>/admin/security/detail/isSystem} ? 'Information' : 'Success' }"/>
+                        </VBox>
+                      </HBox>
+                      <Button
+                        text="Delete"
+                        icon="sap-icon://delete"
+                        type="Transparent"
+                        visible="{= !${ui>/admin/security/detail/isSystem} }"
+                        press=".onSecurityDeleteRole"/>
+                    </HBox>
+
+                    <l:Grid defaultSpan="L6 M6 S12" hSpacing="1" vSpacing="0" containerQuery="true" class="sapUiSmallMarginTop">
+                      <VBox class="sapUiSmallMarginBottom">
+                        <Label text="Role name" class="szSecurityFieldLabel"/>
+                        <Input
+                          value="{ui>/admin/security/detail/roleName}"
+                          editable="{= !${ui>/admin/security/detail/isSystem} }"
+                          placeholder="Role name"/>
+                      </VBox>
+                      <VBox class="sapUiSmallMarginBottom">
+                        <Label text="Department" class="szSecurityFieldLabel"/>
+                        <Select
+                          forceSelection="false"
+                          selectedKey="{ui>/admin/security/detail/department}"
+                          enabled="{= !${ui>/admin/security/detail/isSystem} }"
+                          items="{ui>/admin/security/departments}"
+                          width="100%">
+                          <core:Item key="{ui>key}" text="{ui>text}"/>
+                        </Select>
+                      </VBox>
+                      <VBox class="sapUiSmallMarginBottom">
+                        <Label text="Application scope" class="szSecurityFieldLabel"/>
+                        <Select
+                          forceSelection="false"
+                          selectedKey="{ui>/admin/security/detail/appId}"
+                          items="{ui>/admin/security/apps}"
+                          width="100%">
+                          <core:Item key="{ui>appId}" text="{ui>displayName}"/>
+                        </Select>
+                        <Text text="Leave as “Common — all apps” for a role that is not tied to one application." class="szSecurityFieldHint"/>
+                      </VBox>
+                      <VBox class="sapUiSmallMarginBottom">
+                        <Label text="Description" class="szSecurityFieldLabel"/>
+                        <Input
+                          value="{ui>/admin/security/detail/description}"
+                          placeholder="Optional description"/>
+                      </VBox>
+                    </l:Grid>
+
+                    <Title text="Permissions" level="H4" class="sapUiSmallMarginTop sapUiTinyMarginBottom"/>
+                    <Text text="Toggle the actions this role is allowed to perform." class="szSecurityFieldHint sapUiSmallMarginBottom"/>
+
+                    <l:Grid defaultSpan="L4 M6 S12" hSpacing="1" vSpacing="1" containerQuery="true">
+                      <HBox class="szPermTile" justifyContent="SpaceBetween" alignItems="Center">
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://show" size="1.25rem" color="#0a6ed1" class="sapUiSmallMarginEnd"/>
+                          <VBox>
+                            <Text text="Read" class="szPermName"/>
+                            <Text text="View records" class="szPermHint"/>
+                          </VBox>
+                        </HBox>
+                        <Switch state="{ui>/admin/security/detail/canRead}" customTextOn="On" customTextOff="Off"/>
+                      </HBox>
+                      <HBox class="szPermTile" justifyContent="SpaceBetween" alignItems="Center">
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://edit" size="1.25rem" color="#0a6ed1" class="sapUiSmallMarginEnd"/>
+                          <VBox>
+                            <Text text="Write" class="szPermName"/>
+                            <Text text="Create &amp; edit" class="szPermHint"/>
+                          </VBox>
+                        </HBox>
+                        <Switch state="{ui>/admin/security/detail/canWrite}" customTextOn="On" customTextOff="Off"/>
+                      </HBox>
+                      <HBox class="szPermTile" justifyContent="SpaceBetween" alignItems="Center">
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://delete" size="1.25rem" color="#bb0000" class="sapUiSmallMarginEnd"/>
+                          <VBox>
+                            <Text text="Delete" class="szPermName"/>
+                            <Text text="Remove records" class="szPermHint"/>
+                          </VBox>
+                        </HBox>
+                        <Switch state="{ui>/admin/security/detail/canDelete}" customTextOn="On" customTextOff="Off"/>
+                      </HBox>
+                      <HBox class="szPermTile" justifyContent="SpaceBetween" alignItems="Center">
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://accept" size="1.25rem" color="#107e3e" class="sapUiSmallMarginEnd"/>
+                          <VBox>
+                            <Text text="Approve" class="szPermName"/>
+                            <Text text="Approve requests" class="szPermHint"/>
+                          </VBox>
+                        </HBox>
+                        <Switch state="{ui>/admin/security/detail/canApprove}" customTextOn="On" customTextOff="Off"/>
+                      </HBox>
+                      <HBox class="szPermTile" justifyContent="SpaceBetween" alignItems="Center">
+                        <HBox alignItems="Center">
+                          <core:Icon src="sap-icon://play" size="1.25rem" color="#e9730c" class="sapUiSmallMarginEnd"/>
+                          <VBox>
+                            <Text text="Execute" class="szPermName"/>
+                            <Text text="Run processes" class="szPermHint"/>
+                          </VBox>
+                        </HBox>
+                        <Switch state="{ui>/admin/security/detail/canExecute}" customTextOn="On" customTextOff="Off"/>
+                      </HBox>
+                    </l:Grid>
+
+                    <HBox justifyContent="End" class="sapUiMediumMarginTop">
+                      <Button text="Reset" type="Transparent" press=".onSecurityResetDetail" class="sapUiTinyMarginEnd"/>
+                      <Button text="Save" type="Emphasized" icon="sap-icon://save" press=".onSecuritySaveRole" busy="{ui>/admin/security/detail/busy}"/>
+                    </HBox>
+                  </VBox>
+                  </VBox>
+                </f:content>
+              </f:Card>
+
+            </l:Grid>
           </VBox>
         </Page>
 

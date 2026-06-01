@@ -1060,8 +1060,10 @@ sap.ui.define([
       window.open(IAS_CONSOLE_URL + "/emailTemplates", "_blank", "noopener");
     },
 
-    onAdminTileSystemConfig: function () {
-      MessageToast.show("System configuration screen is coming soon.");
+    onAdminTileSecurity: function () {
+      this.byId("mainNav").to(this.byId("adminSecurityPage"));
+      this._loadSecurityRoles();
+      this._loadSecurityApps();
     },
 
     /* ---------- Breadcrumb navigation ---------- */
@@ -1288,7 +1290,11 @@ sap.ui.define([
         this._adminInviteDialog.close();
         if (errs.length) {
           const lines = errs.map(e => `• ${e.roleCollection}: ${e.error}`).join("\n");
-          MessageBox.warning(`User created in IAS, but some role-collection assignments failed:\n\n${lines}`);
+          const has403 = errs.some(e => /403|Access is denied/i.test(e.error || ""));
+          const hint = has403
+            ? "\n\nThe BTP API client is missing scopes. In the BTP Cockpit, go to Security → Users, filter by OAuth2ClientCredentials, open the service user 'sb-syzygy-launchpad-api-…' and assign the role collection 'User and Role Administrator'."
+            : "";
+          MessageBox.warning(`User created in IAS, but some role-collection assignments failed:\n\n${lines}${hint}`);
         } else if (rcKeys.length) {
           MessageToast.show(`User invited and assigned to ${rcKeys.length} role collection(s)`);
         } else {
@@ -1736,6 +1742,238 @@ sap.ui.define([
         const raw = (data && data.value) || data || "{}";
         MessageBox.information(raw, { title: a.displayName, contentWidth: "640px" });
       } catch (e) { MessageBox.error(e.message); }
+    },
+
+    /* ─────────────────────────────────────────────────────────────────────
+       SECURITY — role & permission management
+       Reads SecurityRoles via the launchpad OData service; mutations go
+       through createSecurityRole / updateSecurityRole / deleteSecurityRole
+       actions. App scope dropdown lists onboarded BTP apps only.
+       ───────────────────────────────────────────────────────────────────── */
+
+    onSecurityReload: function () {
+      this._loadSecurityRoles();
+      this._loadSecurityApps();
+    },
+
+    _loadSecurityRoles: async function () {
+      this._uiModel.setProperty("/admin/security/busy", true);
+      try {
+        const res = await fetch(
+          `${SERVICE_BASE}/SecurityRoles?$orderby=department,roleName`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+        const json = await res.json();
+        const roles = json.value || [];
+        this._uiModel.setProperty("/admin/security/roles", roles);
+        this._uiModel.setProperty("/admin/security/total", roles.length);
+        this._uiModel.setProperty("/admin/security/loaded", true);
+        this._applySecurityFilter();
+        // Keep the current selection in sync (e.g. after a save/reload)
+        const selId = this._uiModel.getProperty("/admin/security/detail/ID");
+        const stillThere = selId && roles.some(r => r.ID === selId);
+        if (!stillThere) this._clearSecuritySelection();
+      } catch (e) {
+        MessageBox.error("Could not load roles.\n" + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/security/busy", false);
+      }
+    },
+
+    _loadSecurityApps: async function () {
+      try {
+        const res = await fetch(
+          `${SERVICE_BASE}/ConfiguredApps?$select=appId,displayName,appType&$filter=appType eq 'btp'&$orderby=displayName`,
+          { headers: { Accept: "application/json" } }
+        );
+        if (!res.ok) throw new Error(`${res.status}`);
+        const json = await res.json();
+        // First entry is the "common role" sentinel (empty key).
+        const apps = [{ appId: "", displayName: "Common — all apps" }]
+          .concat((json.value || []).map(a => ({ appId: a.appId, displayName: a.displayName })));
+        this._uiModel.setProperty("/admin/security/apps", apps);
+        // Rebuild the application filter dropdown: All / Common + each app.
+        const appFilterOptions = [
+          { key: "__all__",    text: "All applications" },
+          { key: "__common__", text: "Common (all apps)" }
+        ].concat((json.value || []).map(a => ({ key: a.appId, text: a.displayName })));
+        this._uiModel.setProperty("/admin/security/appFilterOptions", appFilterOptions);
+      } catch (e) {
+        // Non-fatal — keep the sentinel so the dropdown still works.
+        this._uiModel.setProperty("/admin/security/apps", [{ appId: "", displayName: "Common — all apps" }]);
+      }
+    },
+
+    _applySecurityFilter: function () {
+      const q = (this._uiModel.getProperty("/admin/security/search") || "").toLowerCase().trim();
+      const dept = this._uiModel.getProperty("/admin/security/deptFilter") || "";
+      const app  = this._uiModel.getProperty("/admin/security/appFilter") || "__all__";
+      const all  = this._uiModel.getProperty("/admin/security/roles") || [];
+      const filtered = all.filter(r => {
+        if (q &&
+            !(r.roleName || "").toLowerCase().includes(q) &&
+            !(r.department || "").toLowerCase().includes(q) &&
+            !(r.appId || "").toLowerCase().includes(q)) {
+          return false;
+        }
+        if (dept && (r.department || "") !== dept) return false;
+        if (app === "__common__") {
+          if (r.appId) return false;            // common roles only ⇒ no appId
+        } else if (app !== "__all__") {
+          if ((r.appId || "") !== app) return false;
+        }
+        return true;
+      });
+      this._uiModel.setProperty("/admin/security/filteredRoles", filtered);
+      this._uiModel.setProperty("/admin/security/filteredTotal", filtered.length);
+    },
+
+    onSecurityRoleSearch: function () {
+      this._applySecurityFilter();
+    },
+
+    onSecurityFilterChange: function () {
+      this._applySecurityFilter();
+    },
+
+    onSecurityRoleSelect: function (oEvent) {
+      const item = oEvent.getParameter("listItem") || oEvent.getSource();
+      const ctx = item.getBindingContext("ui");
+      if (!ctx) return;
+      this._bindSecurityDetail(ctx.getObject());
+    },
+
+    _bindSecurityDetail: function (role) {
+      this._uiModel.setProperty("/admin/security/detail", {
+        ID:           role.ID,
+        roleName:     role.roleName || "",
+        department:   role.department || "",
+        appId:        role.appId || "",
+        description:  role.description || "",
+        isSystem:     !!role.isSystem,
+        canRead:      !!role.canRead,
+        canWrite:     !!role.canWrite,
+        canDelete:    !!role.canDelete,
+        canApprove:   !!role.canApprove,
+        canExecute:   !!role.canExecute,
+        hasSelection: true,
+        busy:         false
+      });
+    },
+
+    _clearSecuritySelection: function () {
+      this._uiModel.setProperty("/admin/security/detail", {
+        ID: "", roleName: "", department: "", appId: "", description: "",
+        isSystem: false, canRead: false, canWrite: false, canDelete: false,
+        canApprove: false, canExecute: false, hasSelection: false, busy: false
+      });
+    },
+
+    onSecurityResetDetail: function () {
+      const id = this._uiModel.getProperty("/admin/security/detail/ID");
+      const role = (this._uiModel.getProperty("/admin/security/roles") || []).find(r => r.ID === id);
+      if (role) this._bindSecurityDetail(role);
+    },
+
+    onSecuritySaveRole: async function () {
+      const d = this._uiModel.getProperty("/admin/security/detail");
+      if (!d.ID) return;
+      if (!d.roleName || !d.roleName.trim()) {
+        MessageBox.warning("Role name is required.");
+        return;
+      }
+      this._uiModel.setProperty("/admin/security/detail/busy", true);
+      try {
+        await this._callAction("updateSecurityRole", {
+          ID:          d.ID,
+          roleName:    d.roleName.trim(),
+          department:  d.department || "",
+          appId:       d.appId || "",
+          description: d.description || "",
+          canRead:     !!d.canRead,
+          canWrite:    !!d.canWrite,
+          canDelete:   !!d.canDelete,
+          canApprove:  !!d.canApprove,
+          canExecute:  !!d.canExecute
+        });
+        MessageToast.show("Role saved");
+        await this._loadSecurityRoles();
+      } catch (e) {
+        MessageBox.error("Could not save role.\n" + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/security/detail/busy", false);
+      }
+    },
+
+    onSecurityDeleteRole: function () {
+      const d = this._uiModel.getProperty("/admin/security/detail");
+      if (!d.ID || d.isSystem) return;
+      MessageBox.confirm(`Delete the role "${d.roleName}"?`, {
+        title: "Confirm Deletion",
+        onClose: async (action) => {
+          if (action !== MessageBox.Action.OK) return;
+          try {
+            await this._callAction("deleteSecurityRole", { ID: d.ID });
+            MessageToast.show("Role deleted");
+            this._clearSecuritySelection();
+            await this._loadSecurityRoles();
+          } catch (e) {
+            MessageBox.error("Could not delete role.\n" + e.message);
+          }
+        }
+      });
+    },
+
+    onSecurityOpenCreateDialog: async function () {
+      this._uiModel.setProperty("/admin/security/newRole", {
+        roleName: "", department: "", appId: "", description: "", busy: false
+      });
+      if (!this._securityCreateDialog) {
+        this._securityCreateDialog = await Fragment.load({
+          id:         this.getView().getId(),
+          name:       "syzygylaunchpad.view.AdminCreateSecurityRoleDialog",
+          controller: this
+        });
+        this.getView().addDependent(this._securityCreateDialog);
+      }
+      this._securityCreateDialog.open();
+    },
+
+    onSecurityCreateRoleCancel: function () { this._securityCreateDialog.close(); },
+
+    onSecurityCreateRoleSubmit: async function () {
+      const v = this._uiModel.getProperty("/admin/security/newRole");
+      if (!v.roleName || !v.roleName.trim()) {
+        MessageBox.warning("Role name is required.");
+        return;
+      }
+      this._uiModel.setProperty("/admin/security/newRole/busy", true);
+      try {
+        const created = await this._callAction("createSecurityRole", {
+          roleName:    v.roleName.trim(),
+          department:  v.department || "",
+          appId:       v.appId || "",
+          description: v.description || "",
+          canRead:     false,
+          canWrite:    false,
+          canDelete:   false,
+          canApprove:  false,
+          canExecute:  false
+        });
+        MessageToast.show("Role created — now assign its permissions");
+        this._securityCreateDialog.close();
+        await this._loadSecurityRoles();
+        // Select the freshly-created role so the admin can assign permissions.
+        if (created && created.ID) {
+          const role = (this._uiModel.getProperty("/admin/security/roles") || []).find(r => r.ID === created.ID);
+          if (role) this._bindSecurityDetail(role);
+        }
+      } catch (e) {
+        MessageBox.error("Could not create role.\n" + e.message);
+      } finally {
+        this._uiModel.setProperty("/admin/security/newRole/busy", false);
+      }
     },
 
     /* ---------- helpers ---------- */
