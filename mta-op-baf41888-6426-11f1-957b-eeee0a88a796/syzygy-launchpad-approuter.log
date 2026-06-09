@@ -1,0 +1,234 @@
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:15:13.752616] Updated app with guid 447638d4-02a2-4b6b-a0ae-94713301921e ({"lifecycle"=>{"data"=>{"buildpacks"=>[]}, "type"=>"buildpack"}}) (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:15:13.865416] Updating process: "web" (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:15:13.986231] Updated app with guid 447638d4-02a2-4b6b-a0ae-94713301921e ({"environment_variables"=>"[PRIVATE DATA HIDDEN]"}) (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:15:51.324675] Uploading app package for app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:15:51.524765] Updated app with guid 447638d4-02a2-4b6b-a0ae-94713301921e ({"environment_variables"=>"[PRIVATE DATA HIDDEN]"}) (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:01.513917] Stopping app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:01.551664] Cell 96984ee5-4b1f-4ea6-8bad-544a9b82153f stopping instance afba388b-cf0e-4bc6-78ac-deeb (STDOUT, CELL)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:01.713063] Creating build for app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.093525] Downloading zero_trust_sidecar_buildpack_1_16... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.093590] Downloading binary_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.093603] Downloading sap_java_buildpack_jakarta_2_56... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.093674] Downloading zero_trust_sidecar_buildpack_1_14... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.093699] Downloading zero_trust_sidecar_buildpack_1_15... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.137341] Downloaded sap_java_buildpack_jakarta_2_56 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.139913] Downloaded zero_trust_sidecar_buildpack_1_16 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.139935] Downloading staticfile_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.141579] Downloaded zero_trust_sidecar_buildpack_1_14 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.141591] Downloading java_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.142296] Downloaded zero_trust_sidecar_buildpack_1_15 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.142309] Downloading nodejs_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.149862] Downloading go_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.164119] Downloaded binary_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.164140] Downloading python_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.188596] Downloaded java_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.188618] Downloading php_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.192736] Downloaded staticfile_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.192752] Downloading nginx_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.197687] Downloaded nodejs_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.197703] Downloading java_buildpack_v5_preview... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.198310] Downloaded go_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.198323] Downloading sap_java_buildpack_jakarta_2_58... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.213597] Downloaded python_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.213615] Downloading sap_java_buildpack_jakarta... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.233909] Downloaded nginx_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.233932] Downloading zero_trust_sidecar_buildpack... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.238492] Downloaded php_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.238508] Downloading sap_java_buildpack_jakarta_2_59... (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.239174] Downloaded java_buildpack_v5_preview (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.242793] Downloaded sap_java_buildpack_jakarta_2_58 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.268679] Downloaded sap_java_buildpack_jakarta (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.276432] Downloaded zero_trust_sidecar_buildpack (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.279920] Downloaded sap_java_buildpack_jakarta_2_59 (STDOUT, STG)#
+#2026 06 09 17:16:11.197#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.279992] Cell 404529d6-c289-46af-8c87-5eb6cbbb6a9d creating container for instance 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.691522] Security group rules were updated (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:03.764912] Cell 404529d6-c289-46af-8c87-5eb6cbbb6a9d successfully created container for instance 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:04.407382] Downloading app package... (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:04.407405] Downloading build artifacts cache... (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:04.497911] Downloaded build artifacts cache (227B) (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:05.443417] Downloaded app package (7.5M) (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:05.966096] -----> Nodejs Buildpack version 1.8.44 (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:06.263511] -----> Bootstrapping python (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:06.263530] -----> Installing python 3.11.14 (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:06.263536] Copy [/tmp/buildpacks/bebd3a52ea6e985b/dependencies/b5e0345ae0ae1932e7d56fffaa49a487/python_3.11.14_linux_x64_cflinuxfs4_66f53248.tgz] (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210452] -----> Installing binaries (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210495] engines.node (package.json): >=20 (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210500] engines.npm (package.json): unspecified (use default) (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210548] [31;1m**WARNING**[0m Dangerous semver range (>) in engines.node. See: http://docs.cloudfoundry.org/buildpacks/node/node-tips.html (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210645] -----> Installing node 24.13.0 (STDOUT, STG)#
+#2026 06 09 17:16:11.198#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1279#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:09.210734] Copy [/tmp/buildpacks/bebd3a52ea6e985b/dependencies/2f5692219fecc3eee6e6d507a6bfe7b9/node_24.13.0_linux_x64_cflinuxfs4_a816dee1.tgz] (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.024025] Using default npm version: 11.6.2 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.024057] -----> Installing yarn 1.22.22 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.024072] Copy [/tmp/buildpacks/bebd3a52ea6e985b/dependencies/e3a39aedd1236924d69cc2d0637a8ed2/yarn_1.22.22_linux_noarch_any-stack_4911d0a6.tgz] (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.278052] Installed yarn 1.22.22 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.278073] -----> Creating runtime environment (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279667] NODE_ENV=production (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279681] NODE_HOME=/tmp/contents4221738369/deps/0/node (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279683] NODE_MODULES_CACHE=true (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279687] NODE_VERBOSE=false (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279692] NPM_CONFIG_LOGLEVEL=error (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279695] NPM_CONFIG_PRODUCTION=true (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279706] -----> Building dependencies (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279708] Prebuild detected (node_modules already exists) (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.279741] Rebuilding any native modules (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.897407] rebuilt dependencies successfully (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.898751] npm notice (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.898769] npm notice New minor version of npm available! 11.6.2 -> 11.16.0 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.898775] npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.16.0 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.898777] npm notice To update run: npm install -g npm@11.16.0 (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.898779] npm notice (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:11.955261] Installing any new modules (package.json + package-lock.json) (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:12.550415] up to date in 532ms (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:12.550475] 21 packages are looking for funding (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:12.550612] run `npm fund` for details (STDOUT, STG)#
+#2026 06 09 17:16:21.288#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1285#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:13.239322] Contrast Security no credentials found. Will not write environment files. (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.034167] Exit status 0 (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.034224] Uploading droplet, build artifacts cache... (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.034285] Uploading droplet... (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.034288] Uploading build artifacts cache... (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.049402] Uploaded build artifacts cache (226B) (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:22.624489] Creating droplet for app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:27.693854] Uploaded droplet (61.8M) (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:27.708291] Uploading complete (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:28.481827] Cell 404529d6-c289-46af-8c87-5eb6cbbb6a9d stopping instance 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:28.481851] Cell 404529d6-c289-46af-8c87-5eb6cbbb6a9d destroying container for instance 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, STG)#
+#2026 06 09 17:16:31.214#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1291#
+[PollStageAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:28.543514] Staging complete for build 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, API)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:31.291101] Updated app with guid 447638d4-02a2-4b6b-a0ae-94713301921e ({:droplet_guid=>"f5be64e6-a531-41d9-8a66-e768d4b2e175"}) (STDOUT, API)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:31.467162] Creating revision for app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:31.510770] Starting app with guid 447638d4-02a2-4b6b-a0ae-94713301921e (STDOUT, API)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:31.667533] Cell cefdac31-e0ff-490b-a2c5-6a3cdfb54163 creating container for instance 5fb1c0e1-16ab-4fdf-6cc6-acf7 (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:32.060285] Security group rules were updated (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:32.133553] Cell cefdac31-e0ff-490b-a2c5-6a3cdfb54163 successfully created container for instance 5fb1c0e1-16ab-4fdf-6cc6-acf7 (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:32.472108] Cell 404529d6-c289-46af-8c87-5eb6cbbb6a9d successfully destroyed container for instance 6957d0b7-c0f5-4a0a-931d-026dd575e39c (STDOUT, STG)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:32.487133] Downloading droplet... (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.115034] Downloaded droplet (61.8M) (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.115255] Starting health monitoring of container (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.184471] Invoking pre-start scripts. (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.327432] Invoking start command. (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.646964] > syzygy-launchpad-approuter@1.0.0 start (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.646987] > node node_modules/@sap/approuter/approuter.js (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:36.889675] {"written_at":"2026-06-09T17:16:36.888Z","written_ts":1781025396888000000,"csn_component":"-","correlation_id":"-","type":"log","logger":"nodejs-logger","layer":"/LoggingLibrary","level":"warning","container_id":"10.36.128.5","component_type":"application","component_id":"447638d4-02a2-4b6b-a0ae-94713301921e","component_name":"syzygy-launchpad-approuter","component_instance":-1,"source_instance":-1,"organization_id":"263a8372-56ff-4141-bf6c-4b0816c50bb7","organization_name":"SyzygySPMOrg","space_id":"429e34b0-0709-4106-bbc6-9d8aa0b33314","space_name":"SyzygyDev","context_id":"","msg":"Dynamic log level switching not available"} (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:37.155295] {"written_at":"2026-06-09T17:16:37.154Z","written_ts":1781025397154000000,"csn_component":"-","correlation_id":"mq6wjbmq","type":"log","logger":"nodejs-logger","layer":"/approuter","level":"info","container_id":"10.36.128.5","component_type":"application","component_id":"447638d4-02a2-4b6b-a0ae-94713301921e","component_name":"syzygy-launchpad-approuter","component_instance":-1,"source_instance":-1,"organization_id":"263a8372-56ff-4141-bf6c-4b0816c50bb7","organization_name":"SyzygySPMOrg","space_id":"429e34b0-0709-4106-bbc6-9d8aa0b33314","space_name":"SyzygyDev","context_id":"mq6wjbmq","msg":"Application router version 16.9.0"} (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:37.157630] {"written_at":"2026-06-09T17:16:37.157Z","written_ts":1781025397157000000,"csn_component":"-","correlation_id":"mq6wjbmt","type":"log","logger":"nodejs-logger","layer":"/Configuration","level":"info","container_id":"10.36.128.5","component_type":"application","component_id":"447638d4-02a2-4b6b-a0ae-94713301921e","component_name":"syzygy-launchpad-approuter","component_instance":-1,"source_instance":-1,"organization_id":"263a8372-56ff-4141-bf6c-4b0816c50bb7","organization_name":"SyzygySPMOrg","space_id":"429e34b0-0709-4106-bbc6-9d8aa0b33314","space_name":"SyzygyDev","context_id":"mq6wjbmt","msg":"No COOKIES environment variable"} (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:37.174755] (node:227) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead. (STDERR, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:37.174771] (Use `node --trace-deprecation ...` to show where the warning was created) (STDERR, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:37.191008] {"written_at":"2026-06-09T17:16:37.190Z","written_ts":1781025397190000000,"csn_component":"-","correlation_id":"mq6wjbmq","type":"log","logger":"nodejs-logger","layer":"/approuter","level":"info","container_id":"10.36.128.5","component_type":"application","component_id":"447638d4-02a2-4b6b-a0ae-94713301921e","component_name":"syzygy-launchpad-approuter","component_instance":-1,"source_instance":-1,"organization_id":"263a8372-56ff-4141-bf6c-4b0816c50bb7","organization_name":"SyzygySPMOrg","space_id":"429e34b0-0709-4106-bbc6-9d8aa0b33314","space_name":"SyzygyDev","context_id":"mq6wjbmq","msg":"Application router is listening on port: 8080"} (STDOUT, APP/PROC/WEB)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:39.628702] Container became healthy (STDOUT, CELL)#
+#2026 06 09 17:16:41.266#Z#DEBUG#baf41888-6426-11f1-957b-eeee0a88a796.syzygy-launchpad-approuter#flowable-async-job-executor-thread-1300#
+[PollStartAppStatusExecution] 447638d4-02a2-4b6b-a0ae-94713301921e [2026-06-09T17:16:39.655019] Process became ready with guid 447638d4-02a2-4b6b-a0ae-94713301921e payload: {"instance"=>"5fb1c0e1-16ab-4fdf-6cc6-acf7", "index"=>0, "cell_id"=>"cefdac31-e0ff-490b-a2c5-6a3cdfb54163", "ready"=>true, "version"=>"b533fd9f-f0f6-4723-82df-9291f0f5848b"} (STDOUT, API)#

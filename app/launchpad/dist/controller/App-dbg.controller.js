@@ -233,10 +233,194 @@ sap.ui.define([
 
     onOpenAiBot: function () {
       this._uiModel.setProperty("/aiPanelOpen", !this._uiModel.getProperty("/aiPanelOpen"));
+      // Wire Enter-to-send on first open (control is created with the view).
+      // valueLiveUpdate="true" on the TextArea ensures the model property
+      // /aiChat/input is updated on every keystroke, so by the time this
+      // handler reads it, it already contains the in-progress text.
+      if (!this._aiInputWired) {
+        const oInput = this.byId("aiChatInput");
+        if (oInput) {
+          oInput.attachBrowserEvent("keydown", this._onAiInputKeyDown.bind(this));
+          this._aiInputWired = true;
+        }
+      }
     },
 
     onCloseAiPanel: function () {
       this._uiModel.setProperty("/aiPanelOpen", false);
+      this._uiModel.setProperty("/aiPanelFull", false);
+      const oLayout = this.byId("mainLayout");
+      if (oLayout) oLayout.removeStyleClass("szAiFullActive");
+    },
+
+    onAiToggleFullscreen: function () {
+      const bFull = !this._uiModel.getProperty("/aiPanelFull");
+      this._uiModel.setProperty("/aiPanelFull", bFull);
+      // UI5 only applies XML `class=...` once at parse time, so binding
+      // expressions on `class` don't react. Toggle the class on the layout
+      // root imperatively instead.
+      const oLayout = this.byId("mainLayout");
+      if (oLayout) {
+        if (bFull) oLayout.addStyleClass("szAiFullActive");
+        else oLayout.removeStyleClass("szAiFullActive");
+      }
+      // Re-scroll after layout settles — the scrollable region just resized.
+      this._scrollAiToBottom();
+    },
+
+    /* ───────────────────────── AI chat ───────────────────────── */
+
+    _onAiInputKeyDown: function (oEvent) {
+      // Enter = send, Shift+Enter = newline.
+      if (oEvent.key === "Enter" && !oEvent.shiftKey && !oEvent.isComposing) {
+        oEvent.preventDefault();
+        this.onAiSend();
+      }
+    },
+
+    onAiClearChat: function () {
+      this._uiModel.setProperty("/aiChat/messages", []);
+      this._uiModel.setProperty("/aiChat/input", "");
+    },
+
+    onAiSend: async function () {
+      const oModel = this._uiModel;
+      const sInput = (oModel.getProperty("/aiChat/input") || "").trim();
+      if (!sInput || oModel.getProperty("/aiChat/busy")) return;
+
+      const aMessages = (oModel.getProperty("/aiChat/messages") || []).slice();
+      aMessages.push(this._mkMessage("user", sInput));
+      oModel.setProperty("/aiChat/messages", aMessages);
+      oModel.setProperty("/aiChat/input", "");
+      oModel.setProperty("/aiChat/busy", true);
+      this._scrollAiToBottom();
+
+      // Build the payload — strip presentation fields.
+      const aPayload = aMessages.map((m) => ({ role: m.role, content: m.content }));
+
+      try {
+        const oResp = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ messages: aPayload })
+        });
+
+        let oBody = null;
+        try { oBody = await oResp.json(); } catch (e) { /* ignore */ }
+
+        if (!oResp.ok) {
+          const sErr = (oBody && (oBody.detail || oBody.message)) || ("HTTP " + oResp.status);
+          this._appendAiMessage("assistant", "**Error:** " + sErr, true);
+        } else if (!oBody || !oBody.reply) {
+          this._appendAiMessage("assistant", "**Error:** empty response from AI service.", true);
+        } else {
+          this._appendAiMessage("assistant", oBody.reply, false);
+        }
+      } catch (e) {
+        this._appendAiMessage("assistant", "**Network error:** " + (e && e.message || e), true);
+      } finally {
+        oModel.setProperty("/aiChat/busy", false);
+        this._scrollAiToBottom();
+      }
+    },
+
+    _appendAiMessage: function (sRole, sContent, bError) {
+      const aMessages = (this._uiModel.getProperty("/aiChat/messages") || []).slice();
+      aMessages.push(this._mkMessage(sRole, sContent, bError));
+      this._uiModel.setProperty("/aiChat/messages", aMessages);
+    },
+
+    _mkMessage: function (sRole, sContent, bError) {
+      return {
+        role: sRole,
+        content: sContent,
+        error: !!bError,
+        contentHtml: this._mdToSafeHtml(sContent)
+      };
+    },
+
+    _scrollAiToBottom: function () {
+      const oScroll = this.byId("aiChatScroll");
+      if (!oScroll) return;
+      // Run after the next render tick so newly added DOM is measurable.
+      // Two passes catch the FormattedText re-render that adds tables/lists.
+      setTimeout(function () {
+        try { oScroll.scrollTo(0, 999999, 0); } catch (e) { /* ignore */ }
+      }, 50);
+      setTimeout(function () {
+        try { oScroll.scrollTo(0, 999999, 0); } catch (e) { /* ignore */ }
+      }, 300);
+    },
+
+    /**
+     * Minimal, safe markdown → HTML converter for FormattedText.
+     * Supports: escaping, **bold**, *italic*, `inline code`, fenced code,
+     * pipe tables, line breaks, bullet lists, and naked URLs. NO raw HTML
+     * passes through — input is escaped first.
+     */
+    _mdToSafeHtml: function (sMd) {
+      if (sMd == null) return "";
+      let s = String(sMd);
+
+      // 1. Escape HTML.
+      s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      // 2. Fenced code blocks ```...```
+      s = s.replace(/```([\s\S]*?)```/g, function (_m, code) {
+        return "<pre><code>" + code.replace(/\n$/, "") + "</code></pre>";
+      });
+
+      // 3. Pipe tables — minimal: header | separator | body lines.
+      s = s.replace(/(^|\n)((?:\|[^\n]+\|\n)+)/g, function (_m, lead, block) {
+        const aLines = block.trim().split(/\n/);
+        if (aLines.length < 2) return lead + block;
+        const aSep = aLines[1].split("|").map(function (c) { return c.trim(); }).filter(Boolean);
+        if (!aSep.length || !aSep.every(function (c) { return /^:?-{2,}:?$/.test(c); })) {
+          return lead + block;
+        }
+        const aHead = aLines[0].split("|").slice(1, -1).map(function (c) { return c.trim(); });
+        const aRows = aLines.slice(2).map(function (l) {
+          return l.split("|").slice(1, -1).map(function (c) { return c.trim(); });
+        });
+        let out = '<table class="szAiTable"><thead><tr>';
+        aHead.forEach(function (h) { out += "<th>" + h + "</th>"; });
+        out += "</tr></thead><tbody>";
+        aRows.forEach(function (r) {
+          out += "<tr>";
+          r.forEach(function (c) { out += "<td>" + c + "</td>"; });
+          out += "</tr>";
+        });
+        out += "</tbody></table>";
+        return lead + out;
+      });
+
+      // 4. Bold / italic / inline code.
+      s = s.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+      s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>");
+      s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+
+      // 5. Bullet lists — group consecutive "- " or "* " lines into <ul>.
+      s = s.replace(/((?:^|\n)(?:[-*] [^\n]+\n?)+)/g, function (m) {
+        const aItems = m.trim().split(/\n/).map(function (l) {
+          return "<li>" + l.replace(/^[-*] /, "") + "</li>";
+        });
+        return "\n<ul>" + aItems.join("") + "</ul>";
+      });
+
+      // 6. Naked URLs → links (opens in new tab).
+      s = s.replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+      // 7. Paragraph / line breaks. Avoid adding <br/> inside pre/table/ul.
+      s = s.replace(/\n{2,}/g, "</p><p>");
+      s = s.replace(/\n/g, "<br/>");
+      s = "<p>" + s + "</p>";
+
+      // Clean up <p> wrappers that ended up around block elements.
+      s = s.replace(/<p>\s*(<(?:pre|table|ul)[\s\S]*?<\/(?:pre|table|ul)>)\s*<\/p>/g, "$1");
+      s = s.replace(/<p>\s*<\/p>/g, "");
+
+      return s;
     },
 
     onOpenNotifications: async function (oEvent) {

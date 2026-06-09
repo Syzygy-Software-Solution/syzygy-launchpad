@@ -1460,37 +1460,76 @@
 
         <!-- AI chat side panel -->
         <VBox id="aiChatPanel" visible="{ui>/aiPanelOpen}" height="100%" class="szAiPanel">
-          <layoutData><FlexItemData shrinkFactor="0" baseSize="380px"/></layoutData>
+          <layoutData><FlexItemData shrinkFactor="0" baseSize="420px"/></layoutData>
 
           <!-- header -->
           <Toolbar class="szAiPanelHeader sapMTB-Transparent-CTX">
             <Title text="AI Assistant" level="H4"/>
             <ToolbarSpacer/>
+            <Button icon="{= ${ui>/aiPanelFull} ? 'sap-icon://exit-full-screen' : 'sap-icon://full-screen' }"
+                    type="Transparent"
+                    tooltip="{= ${ui>/aiPanelFull} ? 'Restore' : 'Expand' }"
+                    press=".onAiToggleFullscreen"/>
+            <Button icon="sap-icon://refresh" type="Transparent" tooltip="Clear conversation" press=".onAiClearChat"/>
             <Button icon="sap-icon://decline" type="Transparent" tooltip="Close" press=".onCloseAiPanel"/>
           </Toolbar>
 
-          <!-- illustrated placeholder -->
-          <VBox class="szAiPanelBody" justifyContent="Center" alignItems="Center">
-            <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
-            <IllustratedMessage
-              illustrationType="NoData"
-              title="AI Assistant"
-              description="Your intelligent copilot for Sales Performance insights. Chat functionality coming soon."/>
-          </VBox>
+          <!-- chat body -->
+          <ScrollContainer id="aiChatScroll" class="szAiPanelBody" height="100%" vertical="true" horizontal="false" focusable="false">
+            <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minHeight="0px"/></layoutData>
+            <VBox class="szAiChatList">
+              <!-- empty-state -->
+              <IllustratedMessage
+                visible="{= ${ui>/aiChat/messages}.length === 0 }"
+                illustrationType="NoData"
+                title="AI Assistant"
+                description="Ask about commission &amp; bonus payments. Provide a period sequence, earning group ID, or earning code ID to get started."/>
+
+              <!-- message bubbles -->
+              <List
+                visible="{= ${ui>/aiChat/messages}.length > 0 }"
+                items="{ui>/aiChat/messages}"
+                showSeparators="None"
+                showNoData="false"
+                class="szAiMsgList">
+                <CustomListItem class="szAiMsgItem">
+                  <FlexBox direction="Row" justifyContent="{= ${ui>role} === 'user' ? 'End' : 'Start' }" wrap="NoWrap">
+                    <VBox class="{= ${ui>role} === 'user' ? 'szAiMsgBubble szAiMsgUser' : (${ui>error} ? 'szAiMsgBubble szAiMsgError' : 'szAiMsgBubble szAiMsgAssistant') }">
+                      <FormattedText htmlText="{ui>contentHtml}"/>
+                    </VBox>
+                  </FlexBox>
+                </CustomListItem>
+              </List>
+
+              <!-- thinking indicator -->
+              <FlexBox visible="{ui>/aiChat/busy}" class="szAiThinking" alignItems="Center">
+                <BusyIndicator size="1rem"/>
+                <Text text="Thinking…" class="sapUiTinyMarginBegin"/>
+              </FlexBox>
+            </VBox>
+          </ScrollContainer>
 
           <!-- input bar -->
-          <HBox alignItems="Center" class="szAiInputBar">
+          <HBox alignItems="End" class="szAiInputBar">
             <TextArea
               id="aiChatInput"
-              placeholder="Ask me something..."
+              value="{ui>/aiChat/input}"
+              valueLiveUpdate="true"
+              placeholder="Ask about payments… (Enter to send, Shift+Enter for newline)"
               growing="true"
-              growingMaxLines="3"
+              growingMaxLines="4"
               rows="1"
+              enabled="{= !${ui>/aiChat/busy} }"
               class="szAiTextInput">
               <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
             </TextArea>
-            <Button icon="sap-icon://microphone" type="Transparent" tooltip="Voice input" class="sapUiTinyMarginBegin"/>
-            <Button icon="sap-icon://paper-plane" type="Emphasized" tooltip="Send" class="sapUiTinyMarginBegin"/>
+            <Button
+              icon="sap-icon://paper-plane"
+              type="Emphasized"
+              tooltip="Send"
+              enabled="{= !${ui>/aiChat/busy} &amp;&amp; !!${ui>/aiChat/input} }"
+              press=".onAiSend"
+              class="sapUiTinyMarginBegin"/>
           </HBox>
         </VBox>
 

@@ -14,6 +14,13 @@
       "csrfProtection": false
     },
     {
+      "source": "^/api/ai/(.*)$",
+      "target": "/$1",
+      "destination": "ai-api",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
       "source": "^/logout.html$",
       "target": "/logout.html",
       "service": "html5-apps-repo-rt",

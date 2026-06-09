@@ -30,6 +30,13 @@
       "csrfProtection": false
     },
     {
+      "source": "^/api/ai/(.*)$",
+      "target": "/$1",
+      "destination": "ai-api",
+      "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },
+    {
       "source": "^/syzygylaunchpad/logout.html$",
       "target": "/syzygylaunchpad/logout.html",
       "service": "html5-apps-repo-rt",

@@ -40,7 +40,15 @@ sap.ui.define([
         sideExpanded: false,
         frameLoading: false,
         aiPanelOpen: false,
+        aiPanelFull: false,
         theme: savedTheme,
+        // AI Assistant chat state — kept in-memory only (per browser tab).
+        // `messages` shape: [{ role: "user"|"assistant", content: "...", error?: bool }]
+        aiChat: {
+          messages: [],
+          busy: false,
+          input: ""
+        },
         user: {
           name: "John Smith",
           initials: "JS",

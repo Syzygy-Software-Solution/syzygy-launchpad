@@ -61,6 +61,40 @@ modules:
     parameters:
       buildpack: nodejs_buildpack
 
+  # ---------- AI service (Python / FastAPI) ----------
+  # Powers the AI Assistant panel. Talks to SAP AI Core (gpt-4o-mini) and
+  # the SAP Incentive Management OData APIs via the BTP Destination service.
+  #
+  # All non-secret config lives here as `properties:`. Secrets (AI Core
+  # client_id/secret, TCMP credentials) are resolved at runtime via the
+  # destination service binding — nothing sensitive in this file.
+  - name: syzygy-launchpad-ai
+    type: python
+    path: ai-service
+    requires:
+      - name: syzygy-launchpad-auth
+      - name: syzygy-launchpad-destination-service
+    provides:
+      - name: ai-api
+        properties:
+          ai-url: ${default-url}
+    parameters:
+      buildpack: python_buildpack
+      memory: 512M
+      disk-quota: 1024M
+      instances: 1
+    properties:
+      GENAI_DESTINATION:         aicore-genai
+      GENAI_CHAT_DEPLOYMENT_ID:  dc26d22a85992d12
+      GENAI_CHAT_MODEL:          gpt-4o-mini
+      GENAI_EMBED_DEPLOYMENT_ID: d19a1bf2fc3ac3eb
+      GENAI_EMBED_MODEL:         text-embedding-3-small
+      AI_CORE_API_VERSION:       "2024-08-01-preview"
+      AI_RESOURCE_GROUP:         default
+      TCMP_DESTINATION:          TCMP_DEST
+      LOG_LEVEL:                 INFO
+      DEV_SKIP_AUTH:             "false"
+
   # ---------- Approuter ----------
   - name: syzygy-launchpad-approuter
     type: approuter.nodejs
@@ -74,6 +108,12 @@ modules:
         properties:
           name: srv-api
           url: ~{srv-url}
+          forwardAuthToken: true
+      - name: ai-api
+        group: destinations
+        properties:
+          name: ai-api
+          url: ~{ai-url}
           forwardAuthToken: true
     parameters:
       disk-quota: 512M
