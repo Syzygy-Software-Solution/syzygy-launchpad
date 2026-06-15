@@ -26,12 +26,17 @@ ai-service/
     destination_client.py   BTP Destination service client (token cache)
     aicore_client.py        AI Core chat-completions wrapper
     orchestrator.py         Super-agent router
+    catalog.py              YAML entity-catalog loader
     agents/
       base.py               Agent dataclass + run loop
       payment_traceability.py
     tools/
-      payments_api.py       query_payments tool (CS_PAYMENT via TCMP)
+      query_entity.py       Generic catalog-driven OData tool
     schemas.py              Pydantic request/response models
+  catalog/
+    cs_payment.yaml         CS_PAYMENT entity card
+    cs_period.yaml          CS_PERIOD entity card
+    cs_periodtype.yaml      CS_PERIODTYPE entity card
   requirements.txt
   runtime.txt               python-3.12.6 for CF buildpack
   Procfile                  uvicorn launcher

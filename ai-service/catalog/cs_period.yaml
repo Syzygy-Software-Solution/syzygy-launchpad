@@ -1,0 +1,53 @@
+# Entity card: CS_PERIOD (compensation calendar periods)
+#
+# Used to resolve a PERIODSEQ from a user-friendly date range. The flow is:
+#   user date range + period type → cs_period rows → PERIODSEQ → cs_payment
+
+name: cs_period
+endpoint: /CS_V_PERIODS/CS_V_PERIODS
+description: Compensation calendar periods (Month/Quarter/Year/Week/Day/Root).
+
+filters:
+  periodtypeseq:
+    column: PERIODTYPESEQ
+    op: eq
+    type: integer
+    description: PERIODTYPESEQ — resolved from cs_periodtype (e.g. monthly).
+  startdate_gte:
+    column: STARTDATE
+    op: ge
+    type: datetime
+    description: STARTDATE >= ISO 8601 UTC, e.g. "2026-04-01T00:00:00Z".
+  startdate_lte:
+    column: STARTDATE
+    op: le
+    type: datetime
+    description: STARTDATE <= ISO 8601 UTC (inclusive upper bound).
+  startdate_lt:
+    column: STARTDATE
+    op: lt
+    type: datetime
+    description: STARTDATE < ISO 8601 UTC (exclusive upper bound; preferred for date ranges).
+  enddate_gte:
+    column: ENDDATE
+    op: ge
+    type: datetime
+    description: ENDDATE >= ISO 8601 UTC.
+  enddate_lte:
+    column: ENDDATE
+    op: le
+    type: datetime
+    description: ENDDATE <= ISO 8601 UTC.
+
+# A bare cs_period call with no filters would scan the whole calendar.
+# Always require at least the period type so results are meaningful.
+requireOneOf:
+  - periodtypeseq
+
+projection:
+  - PERIODSEQ
+  - NAME
+  - PERIODTYPESEQ
+  - STARTDATE
+  - ENDDATE
+  - REMOVEDATE

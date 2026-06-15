@@ -1,0 +1,61 @@
+# Entity card: CS_PAYMENT (commission/bonus payment records)
+#
+# This file is the single source of truth for how the generic
+# `query_entity` tool talks to the SAP Datasphere consumption layer for
+# this entity. The system prompt is auto-generated from these cards, so
+# adding/removing a filter here is enough to expose/remove it to the LLM.
+
+name: cs_payment
+endpoint: /C_V_PAYMENT/C_V_PAYMENT
+description: SAP Incentive Management commission and bonus payment records.
+
+# Filters the LLM may pass via query_entity(filters={...}).
+# Each filter maps to an OData column + comparison operator.
+filters:
+  periodseq:
+    column: PERIODSEQ
+    op: eq
+    type: integer
+    description: PERIODSEQ — sequence ID of the compensation period.
+  earninggroupid:
+    column: EARNINGGROUPID
+    op: eq
+    type: string
+    description: Earning GROUP label, e.g. "Commission", "Bonus".
+  earningcodeid:
+    column: EARNINGCODEID
+    op: eq
+    type: string
+    description: Earning CODE label, e.g. "MBO", "SPIFF", "Named Account".
+
+# At least one of these filter keys must be present.
+requireOneOf:
+  - periodseq
+  - earninggroupid
+  - earningcodeid
+
+# Columns to surface back in `sample[]`. Keeps the LLM context small.
+projection:
+  - PAYMENTSEQ
+  - PAYEESEQ
+  - POSITIONSEQ
+  - PERIODSEQ
+  - EARNINGGROUPID
+  - EARNINGCODEID
+  - VALUE
+  - POSTPIPELINERUNDATE
+  - TRIALPIPELINERUNDATE
+
+# Optional aggregations the handler will compute over the returned rows.
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+  byEarningGroup:
+    type: groupBy
+    by: EARNINGGROUPID
+    metric: VALUE
+  byEarningCode:
+    type: groupBy
+    by: EARNINGCODEID
+    metric: VALUE

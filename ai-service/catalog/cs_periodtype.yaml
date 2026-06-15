@@ -1,0 +1,24 @@
+# Entity card: CS_PERIODTYPE (period type catalog)
+#
+# Tiny lookup table. The LLM resolves a user term (e.g. "monthly",
+# "quarter") → NAME ("month", "quarter") → PERIODTYPESEQ here, and
+# then feeds the PERIODTYPESEQ into cs_period.
+
+name: cs_periodtype
+endpoint: /CS_V_PERIODTYPE/CS_V_PERIODTYPE
+description: Period type catalog. Allowed NAME values - month, quarter, year, week, day, root.
+
+filters:
+  name:
+    column: NAME
+    op: eq
+    type: string
+    description: Period type NAME — one of month, quarter, year, week, day, root.
+
+requireOneOf:
+  - name
+
+projection:
+  - PERIODTYPESEQ
+  - NAME
+  - DESCRIPTION

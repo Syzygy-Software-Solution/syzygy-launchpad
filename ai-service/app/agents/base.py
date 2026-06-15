@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from ..aicore_client import chat_completion
@@ -53,8 +54,13 @@ async def run_agent(
     `user_messages` is the running chat history from the browser
     ({role, content}). The agent's system prompt is prepended.
     """
+    # Date math (e.g. "last 2 months") only works if the LLM knows what
+    # today is. We inject a tiny dynamic system message after the agent's
+    # static prompt so every turn sees the current UTC date.
+    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": agent.system_prompt},
+        {"role": "system", "content": f"Today's date (UTC) is {today_utc}."},
         *user_messages,
     ]
     tool_calls_executed: list[dict[str, Any]] = []

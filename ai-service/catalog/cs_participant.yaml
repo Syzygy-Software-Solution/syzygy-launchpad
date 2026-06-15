@@ -1,0 +1,49 @@
+# Entity card: CS_PARTICIPANT (payee / participant master data)
+#
+# Used to resolve a payee's display name from a PAYEESEQ that came
+# back on a cs_payment row. The flow is:
+#   cs_payment rows → unique PAYEESEQs → cs_participant batch lookup
+#   → FIRSTNAME / LASTNAME for the final reply.
+
+name: cs_participant
+endpoint: /CS_V_PARTICIPANT/CS_V_PARTICIPANT
+description: Payee master data (commission/bonus recipients).
+
+filters:
+  payeeseq:
+    column: PAYEESEQ
+    op: eq
+    type: integer
+    description: PAYEESEQ — single payee sequence id (exact match).
+  payeeseq_in:
+    column: PAYEESEQ
+    op: in
+    type: integer
+    description: |
+      PAYEESEQ in a list of values, e.g. [4503599627370497, 4503599627370534].
+      Preferred when resolving names for multiple payees from a
+      cs_payment result in ONE call.
+  userid:
+    column: USERID
+    op: eq
+    type: string
+    description: USERID — short login/handle (e.g. "aaaron").
+
+requireOneOf:
+  - payeeseq
+  - payeeseq_in
+  - userid
+
+# Surface only the identity fields. The wide row (salary, hire date,
+# 30+ generic attrs) stays out of the LLM context to keep tokens low.
+projection:
+  - PAYEESEQ
+  - FIRSTNAME
+  - LASTNAME
+  - USERID
+
+# CS_PARTICIPANT is time-versioned: the same PAYEESEQ has many rows
+# (effective-dated). FIRSTNAME / LASTNAME do not change between
+# versions, so collapse to the first row per PAYEESEQ before the
+# LLM sees the sample.
+dedupeBy: PAYEESEQ

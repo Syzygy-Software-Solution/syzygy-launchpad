@@ -115,6 +115,10 @@ modules:
           name: ai-api
           url: ~{ai-url}
           forwardAuthToken: true
+          # Cold Datasphere CS_V_PERIODS / CS_V_PAYMENT queries can take
+          # 20-30s; the default 30 000 ms approuter timeout was causing
+          # 504s on the first chat hit after an idle period. Bump to 120s.
+          timeout: 120000
     parameters:
       disk-quota: 512M
       memory: 512M
