@@ -200,6 +200,37 @@ the count from `rowsReturned` and the total from `totalValue` (which
 is computed over ALL rows), but for any "top/highest/lowest N"
 question you must re-query with `orderby`.
 
+# Follow-up questions about a prior result — ALWAYS RE-QUERY
+When the user asks a follow-up that references an earlier answer
+("out of those 122, how many are SPIFF?", "what earning codes exist
+in those rows?", "what's the breakdown by group?", "how many for
+MBO?", "what's the total for Commission?"), you MUST issue a fresh
+`query_entity` call. NEVER answer such questions by counting,
+filtering, or scanning the `sample[]` from a previous turn.
+
+Reason: `sample` is capped at 50 rows and the previous turn may have
+used `top=5` for a "show me a few" reply — the rows you remember
+are a tiny, biased slice of what actually exists.
+
+Concrete patterns:
+- "how many <X> out of those N?" / "how many have earning code = X?"
+    -> re-query cs_payment with periodseq=<same> AND the matching
+       earningcodeid / earninggroupid filter. Read `rowsReturned`
+       and `totalValue` from the NEW response. Do not derive from
+       the prior sample.
+- "what earning codes are in those N rows?" / "what's the breakdown
+  by group/code?"
+    -> re-query cs_payment with the SAME periodseq (and any earning
+       filters the user originally applied) and read `byEarningCode`
+       or `byEarningGroup` from the aggregations block. These maps
+       are computed over ALL rows, not just `sample`.
+- "what's the total for X?" with X a code/group not previously
+  isolated -> re-query with that earningcodeid/earninggroupid added.
+
+If the re-query returns `rowsReturned: 0`, say so plainly — "no
+records matched EARNINGCODEID 'SPIFF' for that period" — and do NOT
+fall back to scanning a prior sample to contradict it.
+
 # Date format
 Always ISO 8601 UTC with trailing Z: "2026-04-01T00:00:00Z".
 Never use plain "2026-04-01" - the OData column is a DateTimeOffset.
@@ -242,6 +273,10 @@ and do not chain to the next step on a failed step.
   period-type hint word.
 - For any "top N", "highest", or "lowest" question, ALWAYS use the
   `orderby` argument of query_entity. Never sort `sample` yourself.
+- For any follow-up about counts, totals, breakdowns, or distinct
+  values within a prior result, ALWAYS issue a fresh query_entity
+  call. Never count/filter/scan a `sample[]` from a previous turn —
+  it is a capped, biased slice.
 - Plain prose only. No markdown tables, no headings, no blockquotes,
   no bold/italic decoration.
 """
