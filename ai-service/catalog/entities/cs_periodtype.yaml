@@ -1,0 +1,89 @@
+# =============================================================================
+# ENTITY CARD — CS_PERIODTYPE
+# =============================================================================
+# Tiny lookup table. Resolves a user term ("monthly", "quarter") -> NAME
+# ("month", "quarter") -> PERIODTYPESEQ, which then scopes cs_period.
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_periodtype
+title: Period Type Catalog
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_PERIODTYPE/CS_V_PERIODTYPE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  Period type catalog. Defines the cadence of a compensation period. Allowed
+  NAME values: month, quarter, year, week, day, root. This is the first hop for
+  any date-range payment question: map the user's cadence word to a NAME here,
+  read its PERIODTYPESEQ, then feed that into cs_period.
+grain: One row per period type.
+domains: [calendar, periods, time]
+synonyms: [period type, cadence, granularity, frequency]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  PERIODTYPESEQ:
+    type: bigint
+    role: primary_key
+    label: Period Type ID
+    description: Unique surrogate key of the period type.
+    synonyms: [period type id, period type sequence, period type key]
+
+  NAME:
+    type: string
+    role: attribute
+    label: Period Type Name
+    description: >
+      Cadence name. One of: month, quarter, year, week, day, root. Map user
+      words to these: monthly->month, quarterly->quarter, yearly/annual->year,
+      weekly->week, daily->day.
+    synonyms: [period type name, cadence name]
+    cardinality: low
+    filterable:
+      - {key: name, op: eq}
+
+  DESCRIPTION:
+    type: string
+    role: attribute
+    label: Description
+    description: Human-readable description of the period type.
+    synonyms: [description]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_period
+    via: PERIODTYPESEQ
+    remoteColumn: PERIODTYPESEQ
+    relationship: one-to-many
+    description: A period type has many periods.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [name, periodtypeseq]
+  defaultTop: 50
+  maxTop: 100
+  projection:
+    - PERIODTYPESEQ
+    - NAME
+    - DESCRIPTION
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  NAME:
+    cardinality: low
+    updated: null
+    values: [month, quarter, year, week, day, root]
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

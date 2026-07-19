@@ -1,0 +1,108 @@
+# =============================================================================
+# ENTITY CARD — CS_PARTICIPANT
+# =============================================================================
+# Payee / participant master data. Two roles in the join graph:
+#   1. Forward:  resolve a PAYEESEQ (from a cs_payment row) -> display name.
+#   2. Reverse:  resolve a name / userid -> PAYEESEQ -> filter cs_payment.
+# The reverse direction is what makes "all payments by John Smith" work.
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_participant
+title: Participants (Payees)
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_PARTICIPANT/CS_V_PARTICIPANT
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  Payee master data — the people who receive commission/bonus payments. Used to
+  turn a PAYEESEQ into a human name for output, and to turn a name/userid into a
+  PAYEESEQ for filtering payments. Time-versioned: the same PAYEESEQ appears in
+  many effective-dated rows (name fields are stable across versions).
+grain: One row per participant, per effective-dated version (collapsed via dedupeBy).
+domains: [participants, payees, people, master data]
+synonyms: [payee, participant, recipient, person, employee, rep]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  PAYEESEQ:
+    type: bigint
+    role: primary_key
+    label: Payee ID
+    description: >
+      Unique surrogate key of the participant. This is the join key to
+      cs_payment.PAYEESEQ (both forward and reverse traversal).
+    synonyms: [payee id, payee sequence, participant id]
+    references:
+      entity: cs_payment
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}   # batch resolve names for many payees at once
+
+  FIRSTNAME:
+    type: string
+    role: attribute
+    label: First Name
+    description: Participant's given name.
+    synonyms: [first name, given name, forename]
+    filterable:
+      - {key: firstname, op: eq}
+
+  LASTNAME:
+    type: string
+    role: attribute
+    label: Last Name
+    description: Participant's family name.
+    synonyms: [last name, surname, family name]
+    filterable:
+      - {key: lastname, op: eq}
+
+  USERID:
+    type: string
+    role: attribute
+    label: User ID
+    description: Short login / handle, e.g. "aaaron".
+    synonyms: [user id, login, handle, username]
+    filterable:
+      - {key: userid, op: eq}
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_payment
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: one-to-many
+    description: A participant has many payments.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [payeeseq, payeeseq_in, userid, firstname, lastname]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - PAYEESEQ
+    - FIRSTNAME
+    - LASTNAME
+    - USERID
+  # Time-versioned table: collapse to first row per PAYEESEQ before the LLM
+  # sees the sample (name fields are identical across effective-dated versions).
+  dedupeBy: PAYEESEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+# Names are high-cardinality — do NOT inline. The value resolver (exact index +
+# HANA vector fallback) handles name -> PAYEESEQ lookups instead.
+valueSets: {}
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

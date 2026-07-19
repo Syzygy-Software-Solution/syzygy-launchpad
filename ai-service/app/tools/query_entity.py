@@ -201,7 +201,16 @@ async def query_entity(
     filters: dict[str, Any] | None = None,
     top: int = 200,
     orderby: str | None = None,
+    extract_columns: list[str] | None = None,
 ) -> dict[str, Any]:
+    """Query one catalog entity via the Datasphere consumption layer.
+
+    `extract_columns` is an internal (non-LLM) hook used by the planner's
+    executor: when supplied, the result includes an `extracts` map of DISTINCT
+    values for each requested column computed over ALL returned records (not the
+    capped `sample`), so multi-hop feed-forward stays correct even when the
+    result set is larger than the sample window.
+    """
     registry = catalog()
     spec = registry.get(entity)
     if spec is None:
@@ -332,4 +341,21 @@ async def query_entity(
     }
     if aggregations:
         result.update(aggregations)
+
+    # Internal feed-forward hook: distinct values over ALL records (order
+    # preserved), used by the planner executor to chain multi-hop steps.
+    if extract_columns:
+        extracts: dict[str, list[Any]] = {}
+        for col in extract_columns:
+            seen_vals: list[Any] = []
+            seen_set: set[Any] = set()
+            for r in records:
+                v = r.get(col)
+                if v in (None, "") or v in seen_set:
+                    continue
+                seen_set.add(v)
+                seen_vals.append(v)
+            extracts[col] = seen_vals
+        result["extracts"] = extracts
+
     return result

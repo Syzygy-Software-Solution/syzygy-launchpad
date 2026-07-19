@@ -1,0 +1,124 @@
+# =============================================================================
+# ENTITY CARD — CS_TITLE
+# =============================================================================
+# Title lookup: turns a position's TITLESEQ into a human-readable NAME (e.g.
+# "Account Executive"). Effective-dated. Its ONLY graph connection is to
+# cs_position (CS_TITLE.RULEELEMENTOWNERSEQ = CS_POSITION.TITLESEQ).
+#
+# Flows:
+#   - Forward:  position.TITLESEQ -> cs_title.RULEELEMENTOWNERSEQ -> NAME.
+#   - Reverse:  title NAME -> cs_title.RULEELEMENTOWNERSEQ -> cs_position.TITLESEQ
+#               -> (positions) -> payments, to answer "payments for position X".
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_title
+title: Position Titles
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_TITLE/CS_V_TITLE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  Position title catalog. Holds the human-readable name of a position title
+  (e.g. "Account Executive"). Resolve a position's TITLESEQ to a title NAME here,
+  or go the other way: match a title NAME to find the positions (and payments)
+  that carry it. Effective-dated and time-versioned.
+grain: One row per title, per effective-dated version.
+domains: [titles, roles, positions, master data]
+synonyms: [title, position title, job title, role name]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  RULEELEMENTOWNERSEQ:
+    type: bigint
+    role: primary_key
+    label: Title ID
+    description: >
+      Unique surrogate key of the title. This is the value stored in
+      CS_POSITION.TITLESEQ, so it is the join key from positions to titles.
+    synonyms: [title id, title sequence, title key]
+    filterable:
+      - {key: ruleelementownerseq, op: eq}
+      - {key: ruleelementownerseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Title Name
+    description: >
+      Human-readable title / position name, e.g. "Account Executive". This is
+      the "position" shown to end users.
+    synonyms: [title, title name, position title, role]
+    filterable:
+      - {key: name, op: eq}
+
+  EFFECTIVESTARTDATE:
+    type: datetime
+    role: date
+    label: Effective Start Date
+    description: Start of the effective-dated validity window for this version.
+    synonyms: [effective start, valid from]
+
+  EFFECTIVEENDDATE:
+    type: datetime
+    role: date
+    label: Effective End Date
+    description: End of the effective-dated validity window for this version.
+    synonyms: [effective end, valid to]
+
+  CREATEDATE:
+    type: datetime
+    role: date
+    label: Create Date
+    description: Timestamp the title record was created.
+    synonyms: [create date, created]
+
+  REMOVEDATE:
+    type: datetime
+    role: date
+    label: Remove Date
+    description: Logical deletion / retirement timestamp for the record, if any.
+    synonyms: [remove date, retired]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_position
+    via: RULEELEMENTOWNERSEQ
+    remoteColumn: TITLESEQ
+    relationship: one-to-many
+    description: A title is carried by many positions.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [ruleelementownerseq, ruleelementownerseq_in, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - RULEELEMENTOWNERSEQ
+    - NAME
+    - EFFECTIVESTARTDATE
+    - EFFECTIVEENDDATE
+  # Effective-dated: collapse time-versioned rows of the same title to one.
+  dedupeBy: RULEELEMENTOWNERSEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+# Title names are a bounded set — good candidate for inlining via the nightly
+# refresh job so "Account Executive" maps to cs_title.NAME automatically.
+valueSets:
+  NAME:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

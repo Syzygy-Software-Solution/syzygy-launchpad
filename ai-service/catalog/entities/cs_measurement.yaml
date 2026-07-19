@@ -1,0 +1,211 @@
+# =============================================================================
+# ENTITY CARD — CS_MEASUREMENT
+# =============================================================================
+# A measurement is a computed value (e.g. "Volume Monthly") credited to a payee's
+# position for a compensation period, produced by a pipeline run under a plan and
+# a rule. Shares the common join keys PAYEESEQ, POSITIONSEQ, PERIODSEQ, so it
+# plugs into the existing graph automatically.
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_measurement
+title: Measurements (Credits)
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_MEASUREMENT/CS_V_MEASUREMENT
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management measurement records — a computed metric/credit value
+  (e.g. "Volume Monthly") for a payee's position within a compensation period,
+  produced by a pipeline run under a specific plan and rule. Use it to answer
+  "measurements/credits for payee X", "measurements in period Y", or
+  "measurements for position Z".
+grain: One row per measurement (payee x position x period x rule x pipeline run).
+domains: [measurements, credits, metrics, incentives]
+synonyms: [measurement, measurements, credit, credits, metric, metrics]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  MEASUREMENTSEQ:
+    type: bigint
+    role: primary_key
+    label: Measurement ID
+    description: Unique surrogate key of the measurement record.
+    synonyms: [measurement id, measurement sequence, measurement key]
+    filterable:
+      - {key: measurementseq, op: eq}
+      - {key: measurementseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Measurement Name
+    description: Name of the measurement, e.g. "Volume Monthly".
+    synonyms: [measurement name, metric name, credit name]
+    cardinality: low
+    filterable:
+      - {key: name, op: eq}
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: The participant the measurement is credited to.
+    synonyms: [payee, participant]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}
+
+  POSITIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Position
+    description: >
+      The position the measurement is credited to. Equals
+      CS_POSITION.RULEELEMENTOWNERSEQ.
+    synonyms: [position, role assignment]
+    references:
+      entity: cs_position
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: positionseq, op: eq}
+      - {key: positionseq_in, op: in}
+
+  PERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Period
+    description: The compensation period the measurement belongs to.
+    synonyms: [period, pay period, compensation period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: periodseq, op: eq}
+      - {key: periodseq_in, op: in}
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this measurement.
+    synonyms: [pipeline run, run id]
+
+  PIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Pipeline Run Date
+    description: Timestamp of the pipeline run that produced this measurement.
+    synonyms: [pipeline run date, run date, computed date]
+
+  PLANSEQ:
+    type: bigint
+    role: attribute
+    label: Plan
+    description: Sequence id of the compensation plan under which it was computed.
+    synonyms: [plan, plan id]
+
+  RULESEQ:
+    type: bigint
+    role: attribute
+    label: Rule
+    description: Sequence id of the rule that produced this measurement.
+    synonyms: [rule, rule id]
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Measurement Value
+    description: The measured/credited amount. No currency symbol.
+    synonyms: [value, amount, credit value, measurement value]
+    aggregatable: [sum, avg, min, max]
+
+  UNITTYPEFORVALUE:
+    type: bigint
+    role: attribute
+    label: Value Unit Type
+    description: Unit-type sequence id for the measurement value.
+    synonyms: [unit type, value unit type]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each measurement is credited to one participant (payee).
+  - to: cs_position
+    via: POSITIONSEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each measurement is credited to one position.
+  - to: cs_period
+    via: PERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: Each measurement belongs to one compensation period.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [measurementseq, measurementseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - MEASUREMENTSEQ
+    - NAME
+    - PAYEESEQ
+    - POSITIONSEQ
+    - PERIODSEQ
+    - VALUE
+    - PIPELINERUNDATE
+    - PLANSEQ
+    - RULESEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+  byName:
+    type: groupBy
+    by: NAME
+    metric: VALUE
+
+# ---- Enrichment: resolve foreign keys to human-readable labels --------------
+# Deterministic (card-driven). After a measurement result, the executor resolves
+# each row's payee name and position title, same as cs_payment.
+enrichments:
+  - as: payeeName
+    column: PAYEESEQ
+    via: cs_participant
+    match: PAYEESEQ
+    display: [FIRSTNAME, LASTNAME]
+  - as: positionTitle
+    column: POSITIONSEQ
+    via: cs_position
+    match: RULEELEMENTOWNERSEQ
+    then:
+      column: TITLESEQ
+      via: cs_title
+      match: RULEELEMENTOWNERSEQ
+      display: [NAME]
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  NAME:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

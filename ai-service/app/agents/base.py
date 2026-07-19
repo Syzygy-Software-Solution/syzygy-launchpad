@@ -36,6 +36,10 @@ class Agent:
     tool_handlers: dict[str, ToolHandler] = field(default_factory=dict)
     temperature: float = 0.1
     max_tool_iterations: int = 4
+    # Entities (catalog table subset) this agent is allowed to query. The
+    # planner injects only these cards + this slice of the join graph into its
+    # prompt, so different agents can own different, overlapping table sets.
+    entities: list[str] = field(default_factory=list)
 
 
 @dataclass

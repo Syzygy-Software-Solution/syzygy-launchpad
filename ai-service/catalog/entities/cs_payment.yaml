@@ -1,0 +1,249 @@
+# =============================================================================
+# ENTITY CARD — CS_PAYMENT
+# =============================================================================
+# This is the production "semantic layer" card for one entity. It is the SINGLE
+# SOURCE OF TRUTH consumed by:
+#   - the schema-RAG index      (description + synonyms + column docs get embedded)
+#   - the query planner          (columns + joins let it plan any-direction hops)
+#   - the generic query_entity   (source + filterable + query guardrails)
+#   - the value resolver          (valueSets + sampleRows)
+#   - the eval suite              (stable contract to assert against)
+#
+# Design rules:
+#   - `columns` is authoritative. Filters are NOT a separate block; each column
+#     declares its own `filterable` capabilities. This removes duplication and
+#     drift between "what exists" and "what can be filtered".
+#   - `joins` are declared as BIDIRECTIONAL graph edges (data, not prose). The
+#     planner traverses them in either direction, which is what lets
+#     "payee -> payments" work as reliably as "period -> payments".
+#   - `valueSets` and `sampleRows` are seeded empty and filled by the nightly
+#     catalog-refresh job. Never hand-maintain them.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_payment
+title: Commission & Bonus Payments
+version: 1
+
+# ---- Source binding (owns the URL; no endpoint knowledge lives in code) -----
+source:
+  destination: TCMP_DEST          # BTP destination resolved at runtime
+  basePathSetting: tcmp_base_path  # config.Settings attr holding the base path
+  relativePath: /C_V_PAYMENT/C_V_PAYMENT
+  odataVersion: v4
+
+# ---- Semantics (drives RAG retrieval + planner reasoning) -------------------
+description: >
+  SAP Incentive Management (SAP Commissions) commission and bonus payment
+  records. One row is a single earning paid to a single participant (payee)
+  within a single compensation period. This is the primary fact table for
+  "how much was paid", "who was paid", and "what was paid for".
+grain: One row per payee, per earning code, per compensation period.
+domains: [payments, commissions, incentives, payouts]
+synonyms: [payments, commission payments, bonus payments, payouts, earnings paid]
+
+# ---- Columns: semantic + operational source of truth ------------------------
+# role     : primary_key | foreign_key | measure | attribute | date
+# references: for foreign_key columns, the entity+column this points to.
+#             (These references are what the join graph is built from.)
+# filterable: the operators query_entity may expose for this column. Each entry
+#             maps a caller-facing filter key -> OData operator.
+columns:
+  PAYMENTSEQ:
+    type: bigint
+    role: primary_key
+    label: Payment ID
+    description: Unique surrogate key of the payment record.
+    synonyms: [payment id, payment sequence, payment key]
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: >
+      The participant (payee) who received this payment. Use this to answer
+      "all payments for payee X" — resolve the person to a PAYEESEQ via
+      cs_participant, then filter here.
+    synonyms: [payee, participant, recipient, person paid]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}   # batch filter for reverse/multi-payee queries
+
+  POSITIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Position
+    description: >
+      The position (job/role assignment) credited with this payment. Equals
+      CS_POSITION.RULEELEMENTOWNERSEQ. Use this to resolve the position (and its
+      title) for a given payment, and to answer "payments for position X". This
+      is the PRECISE per-payment position — prefer it over the payee's position
+      when the anchor is a payment.
+    synonyms: [position, role assignment, position id]
+    references:
+      entity: cs_position
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: positionseq, op: eq}
+      - {key: positionseq_in, op: in}
+
+  PERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Period
+    description: >
+      The compensation period this payment belongs to. Resolve a date range to
+      a PERIODSEQ via cs_period (which itself needs a PERIODTYPESEQ from
+      cs_periodtype), then filter here.
+    synonyms: [period, pay period, compensation period, period sequence]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: periodseq, op: eq}
+      - {key: periodseq_in, op: in}
+
+  EARNINGGROUPID:
+    type: string
+    role: attribute
+    label: Earning Group
+    description: >
+      HIGH-LEVEL earning category. NOT the same as EARNINGCODEID. The word
+      "group" is load-bearing. Typical values: Commission, Bonus, Adjustment.
+    synonyms: [earning group, group, commission type, category]
+    cardinality: low
+    filterable:
+      - {key: earninggroupid, op: eq}
+
+  EARNINGCODEID:
+    type: string
+    role: attribute
+    label: Earning Code
+    description: >
+      SPECIFIC earning code within a group. NOT the same as EARNINGGROUPID.
+      The word "code" is load-bearing. Typical values: MBO, SPIFF,
+      Named Account, QBR.
+    synonyms: [earning code, code, incentive code]
+    cardinality: low
+    filterable:
+      - {key: earningcodeid, op: eq}
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Payment Amount
+    description: Monetary amount of the payment. Never render with a currency symbol.
+    synonyms: [amount, value, payout amount, pay amount]
+    aggregatable: [sum, avg, min, max]
+
+  POSTPIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Posted Pipeline Run Date
+    description: Timestamp of the production pipeline run that posted this payment.
+    synonyms: [posted date, post date, pipeline run date]
+
+  TRIALPIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Trial Pipeline Run Date
+    description: Timestamp of the trial (non-production) pipeline run.
+    synonyms: [trial date, trial run date]
+
+# ---- Relationships: the bidirectional join graph ----------------------------
+# The planner reads these edges (plus every other card's edges) as one graph
+# and finds a path between any two entities in EITHER direction.
+joins:
+  - to: cs_period
+    via: PERIODSEQ            # local column
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: Each payment belongs to exactly one compensation period.
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each payment is paid to exactly one participant (payee).
+  - to: cs_position
+    via: POSITIONSEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each payment is credited to exactly one position.
+
+# ---- Query contract: guardrails enforced in code (never in the prompt) ------
+query:
+  # At least one of these must be present, or query_entity refuses the call.
+  # PAYEESEQ is included so reverse "payments by payee" queries are first-class.
+  requireOneOf: [periodseq, periodseq_in, earninggroupid, earningcodeid, payeeseq, payeeseq_in, positionseq, positionseq_in]
+  defaultTop: 200
+  maxTop: 1000
+  # Columns surfaced back in sample[]. Keeps LLM context small.
+  projection:
+    - PAYMENTSEQ
+    - PAYEESEQ
+    - POSITIONSEQ
+    - PERIODSEQ
+    - EARNINGGROUPID
+    - EARNINGCODEID
+    - VALUE
+    - POSTPIPELINERUNDATE
+    - TRIALPIPELINERUNDATE
+
+# ---- Aggregations computed by query_entity over the full result set ---------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+  byEarningGroup:
+    type: groupBy
+    by: EARNINGGROUPID
+    metric: VALUE
+  byEarningCode:
+    type: groupBy
+    by: EARNINGCODEID
+    metric: VALUE
+
+# ---- Enrichment: resolve foreign keys to human-readable labels --------------
+# DETERMINISTIC and code-driven (NOT the LLM). After a cs_payment result, the
+# executor resolves each payment row's payee name and position title using these
+# rules, and hands the maps to the answer writer. This removes any reliance on
+# the planner remembering to add resolver steps.
+#
+#   as      : name of the map handed to the summariser
+#   column  : the fact column whose values are resolved (keys of the map)
+#   via     : entity to look the value up in
+#   match   : column in `via` to match the fact value against
+#   display : columns in `via` joined into the label (leaf only)
+#   then    : optional second hop (position -> title), same shape
+enrichments:
+  - as: payeeName
+    column: PAYEESEQ
+    via: cs_participant
+    match: PAYEESEQ
+    display: [FIRSTNAME, LASTNAME]
+  - as: positionTitle
+    column: POSITIONSEQ
+    via: cs_position
+    match: RULEELEMENTOWNERSEQ
+    then:
+      column: TITLESEQ
+      via: cs_title
+      match: RULEELEMENTOWNERSEQ
+      display: [NAME]
+
+# ---- Value hints (populated by nightly refresh job; do not hand-edit) -------
+valueSets:
+  EARNINGGROUPID:
+    cardinality: low
+    updated: null
+    values: []      # e.g. [Commission, Bonus, Adjustment]
+  EARNINGCODEID:
+    cardinality: low
+    updated: null
+    values: []      # e.g. [MBO, SPIFF, "Named Account", QBR]
+
+# ---- Sample rows (populated by nightly refresh job; highest-ROI value hint) --
+sampleRows: []

@@ -1,0 +1,199 @@
+# =============================================================================
+# ENTITY CARD — CS_POSITION
+# =============================================================================
+# A position is a job/role assignment held by a payee. Effective-dated: the same
+# position (RULEELEMENTOWNERSEQ) appears in several time-versioned rows, and a
+# payee (PAYEESEQ) may hold more than one position over time.
+#
+# Role in the join graph:
+#   - Payment questions:  cs_payment.POSITIONSEQ -> cs_position.RULEELEMENTOWNERSEQ
+#                         (precise position credited for a specific payment).
+#   - Name questions:     cs_participant.PAYEESEQ -> cs_position.PAYEESEQ
+#                         (the payee's own position, when no POSITIONSEQ exists).
+#   - Title resolution:   cs_position.TITLESEQ -> cs_title.RULEELEMENTOWNERSEQ
+#                         (turns a position into its human-readable title NAME).
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_position
+title: Positions (Job/Role Assignments)
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_POSITION/CS_V_POSITION
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  Position (job/role assignment) master data in SAP Incentive Management. Each
+  position is held by one participant (PAYEESEQ) and carries a title (TITLESEQ),
+  whose human-readable name lives in cs_title. Used to answer "what is the
+  position of payee X" (via PAYEESEQ) and to show the position credited for a
+  payment (via the payment's POSITIONSEQ). Effective-dated and time-versioned.
+grain: One row per position, per effective-dated version.
+domains: [positions, roles, assignments, org, master data]
+synonyms: [position, role, assignment, job, seat]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  RULEELEMENTOWNERSEQ:
+    type: bigint
+    role: primary_key
+    label: Position ID
+    description: >
+      Unique surrogate key of the position. This is the value stored in
+      CS_PAYMENT.POSITIONSEQ, so it is the join key from payments to positions.
+    synonyms: [position id, position sequence, position key]
+    filterable:
+      - {key: ruleelementownerseq, op: eq}
+      - {key: ruleelementownerseq_in, op: in}
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: >
+      The participant who holds this position. Join key to cs_participant and to
+      cs_payment. Use this to resolve a payee's position when only a name/PAYEESEQ
+      is known (no POSITIONSEQ available).
+    synonyms: [payee, participant, holder]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}
+
+  TITLESEQ:
+    type: bigint
+    role: foreign_key
+    label: Title
+    description: >
+      The title of this position. Join key to cs_title.RULEELEMENTOWNERSEQ; the
+      human-readable position name (e.g. "Account Executive") lives there.
+    synonyms: [title, position title, role title]
+    references:
+      entity: cs_title
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: titleseq, op: eq}
+      - {key: titleseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Position Name
+    description: >
+      Position name/code (often mirrors the payee's user id, e.g. "iirving").
+      NOTE: this is NOT the human-readable job title — that is cs_title.NAME.
+    synonyms: [position name, position code]
+    filterable:
+      - {key: name, op: eq}
+
+  MANAGERSEQ:
+    type: bigint
+    role: attribute
+    label: Manager
+    description: Sequence id of the manager's position/payee, if any (nullable).
+    synonyms: [manager, reports to]
+
+  POSITIONGROUPSEQ:
+    type: bigint
+    role: attribute
+    label: Position Group
+    description: Sequence id of the position group, if any (nullable).
+    synonyms: [position group]
+
+  TARGETCOMPENSATION:
+    type: decimal
+    role: measure
+    label: Target Compensation
+    description: Target compensation amount for the position. No currency symbol.
+    synonyms: [target compensation, target comp, OTE]
+    aggregatable: [sum, avg, min, max]
+
+  UNITTYPEFORTARGETCOMPENSATION:
+    type: bigint
+    role: attribute
+    label: Target Compensation Unit Type
+    description: Unit-type sequence id for the target compensation amount.
+    synonyms: [target comp unit type]
+
+  EFFECTIVESTARTDATE:
+    type: datetime
+    role: date
+    label: Effective Start Date
+    description: Start of the effective-dated validity window for this version.
+    synonyms: [effective start, valid from]
+
+  EFFECTIVEENDDATE:
+    type: datetime
+    role: date
+    label: Effective End Date
+    description: End of the effective-dated validity window for this version.
+    synonyms: [effective end, valid to]
+
+  CREATEDATE:
+    type: datetime
+    role: date
+    label: Create Date
+    description: Timestamp the position record was created.
+    synonyms: [create date, created]
+
+  REMOVEDATE:
+    type: datetime
+    role: date
+    label: Remove Date
+    description: Logical deletion / retirement timestamp for the record, if any.
+    synonyms: [remove date, retired]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each position is held by one participant (payee).
+  - to: cs_title
+    via: TITLESEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each position has one title (human-readable name in cs_title).
+  - to: cs_payment
+    via: RULEELEMENTOWNERSEQ
+    remoteColumn: POSITIONSEQ
+    relationship: one-to-many
+    description: A position may be credited with many payments.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [ruleelementownerseq, ruleelementownerseq_in, payeeseq, payeeseq_in, titleseq, titleseq_in, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - RULEELEMENTOWNERSEQ
+    - PAYEESEQ
+    - TITLESEQ
+    - TARGETCOMPENSATION
+    - EFFECTIVESTARTDATE
+    - EFFECTIVEENDDATE
+  # NAME is deliberately NOT projected: it is an internal position code (often a
+  # userid, e.g. "iirving") and must never be mistaken for the human-readable
+  # position TITLE, which lives in cs_title.NAME.
+  # Effective-dated: collapse the many time-versioned rows of the same position
+  # to one before the LLM sees the sample. "Pick first" behaviour for a payee
+  # with multiple positions is handled at answer time.
+  dedupeBy: RULEELEMENTOWNERSEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+valueSets: {}
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

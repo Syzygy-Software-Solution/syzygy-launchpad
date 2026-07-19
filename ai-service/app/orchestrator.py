@@ -14,9 +14,10 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from .agents.base import Agent, AgentRunResult, run_agent
+from .agents.base import Agent, AgentRunResult
 from .agents.payment_traceability import build_agent as build_payment_agent
 from .aicore_client import chat_completion
+from .planner import run_planner_agent
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class Orchestrator:
     async def handle(self, user_messages: list[dict[str, Any]]) -> OrchestratorResult:
         agent_name = await self.route(user_messages)
         agent = self._agents[agent_name]
-        result: AgentRunResult = await run_agent(agent, user_messages)
+        result: AgentRunResult = await run_planner_agent(agent, user_messages)
         return OrchestratorResult(
             agent=agent_name,
             reply=result.reply,

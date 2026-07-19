@@ -1,0 +1,134 @@
+# =============================================================================
+# ENTITY CARD — CS_PERIOD
+# =============================================================================
+# Compensation calendar periods. Bridges a human date range to a PERIODSEQ that
+# the payment fact table can be filtered on. See cs_payment.yaml for the full
+# explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_period
+title: Compensation Calendar Periods
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_PERIODS/CS_V_PERIODS
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  Compensation calendar periods (Month / Quarter / Year / Week / Day / Root).
+  Used to resolve a user-friendly date range into a PERIODSEQ. The flow is:
+  date range + period type -> cs_period rows -> PERIODSEQ -> cs_payment.
+grain: One row per compensation period, per period type.
+domains: [calendar, periods, time]
+synonyms: [period, periods, pay period, compensation period, calendar period]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  PERIODSEQ:
+    type: bigint
+    role: primary_key
+    label: Period ID
+    description: Unique surrogate key of the compensation period.
+    synonyms: [period id, period sequence, period key]
+    filterable:
+      - {key: periodseq, op: eq}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Period Name
+    description: Human-readable period label, e.g. "February 2022", "Q1 2022".
+    synonyms: [period name, label]
+    filterable:
+      - {key: name, op: eq}
+
+  PERIODTYPESEQ:
+    type: bigint
+    role: foreign_key
+    label: Period Type
+    description: >
+      The period TYPE (monthly, quarterly, yearly, ...) this period belongs to.
+      NOT the same as PERIODSEQ. Resolve it from cs_periodtype first, then use
+      it here to scope the calendar to one cadence.
+    synonyms: [period type, cadence, granularity]
+    references:
+      entity: cs_periodtype
+      column: PERIODTYPESEQ
+    filterable:
+      - {key: periodtypeseq, op: eq}
+
+  STARTDATE:
+    type: datetime
+    role: date
+    label: Start Date
+    description: >
+      Inclusive start of the period. RELIABLE for date-range filtering: monthly
+      periods start on day 1, quarterly on Jan/Apr/Jul/Oct 1, yearly on Jan 1.
+      Prefer STARTDATE windows over ENDDATE windows (see ENDDATE note).
+    synonyms: [start date, period start, from date]
+    filterable:
+      - {key: startdate_gte, op: ge}   # inclusive lower bound
+      - {key: startdate_lt, op: lt}    # EXCLUSIVE upper bound (preferred)
+      - {key: startdate_lte, op: le}   # inclusive upper bound
+
+  ENDDATE:
+    type: datetime
+    role: date
+    label: End Date
+    description: >
+      End of the period. WARNING: this Datasphere view uses a first-of-next-
+      period convention (February monthly period has ENDDATE = 2022-03-01, not
+      2022-02-28). ENDDATE-based windows often return zero rows — filter on
+      STARTDATE instead.
+    synonyms: [end date, period end, to date]
+    filterable:
+      - {key: enddate_gte, op: ge}
+      - {key: enddate_lte, op: le}
+
+  REMOVEDATE:
+    type: datetime
+    role: date
+    label: Remove Date
+    description: Logical deletion / retirement timestamp for the period, if any.
+    synonyms: [remove date, retired date]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_periodtype
+    via: PERIODTYPESEQ
+    remoteColumn: PERIODTYPESEQ
+    relationship: many-to-one
+    description: Each period is of exactly one period type.
+  - to: cs_payment
+    via: PERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: one-to-many
+    description: A period has many payments.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  # Always require the period type so we never scan the entire calendar.
+  requireOneOf: [periodtypeseq, periodseq]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - PERIODSEQ
+    - NAME
+    - PERIODTYPESEQ
+    - STARTDATE
+    - ENDDATE
+    - REMOVEDATE
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+valueSets: {}
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []
