@@ -1,0 +1,213 @@
+# =============================================================================
+# ENTITY CARD — CS_INCENTIVE
+# =============================================================================
+# An incentive is a computed incentive amount (e.g. "MBO Prepaid") for a payee's
+# position in a period, produced by a pipeline run under a plan and rule. Shares
+# the common join keys PAYEESEQ, POSITIONSEQ, PERIODSEQ, so it plugs into the
+# existing graph automatically.
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_incentive
+title: Incentives
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_INCENTIVE/CS_V_INCENTIVE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management incentive records — a computed incentive amount (e.g.
+  "MBO Prepaid") for a payee's position within a compensation period, produced by
+  a pipeline run under a specific plan and rule. Use it to answer "incentives for
+  payee X", "incentives in period Y", or "incentives for position Z". Always show
+  the incentive NAME in answers about incentives.
+grain: One row per incentive (payee x position x period x rule x pipeline run).
+domains: [incentives, credits, incentive amounts]
+synonyms: [incentive, incentives]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  INCENTIVESEQ:
+    type: bigint
+    role: primary_key
+    label: Incentive ID
+    description: Unique surrogate key of the incentive record.
+    synonyms: [incentive id, incentive sequence, incentive key]
+    filterable:
+      - {key: incentiveseq, op: eq}
+      - {key: incentiveseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Incentive Name
+    description: >
+      Name of the incentive, e.g. "MBO Prepaid". ALWAYS show this in answers
+      about incentives.
+    synonyms: [incentive name, name]
+    cardinality: low
+    filterable:
+      - {key: name, op: eq}
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: The participant the incentive is credited to.
+    synonyms: [payee, participant, recipient]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}
+
+  POSITIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Position
+    description: >
+      The position the incentive is credited to. Equals
+      CS_POSITION.RULEELEMENTOWNERSEQ.
+    synonyms: [position, role assignment]
+    references:
+      entity: cs_position
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: positionseq, op: eq}
+      - {key: positionseq_in, op: in}
+
+  PERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Period
+    description: The compensation period the incentive belongs to.
+    synonyms: [period, pay period, compensation period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: periodseq, op: eq}
+      - {key: periodseq_in, op: in}
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Incentive Amount
+    description: The incentive amount. No currency — report as a plain number.
+    synonyms: [amount, value, incentive amount]
+    aggregatable: [sum, avg, min, max]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this incentive.
+    synonyms: [pipeline run, run id]
+
+  PIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Pipeline Run Date
+    description: Timestamp of the pipeline run that produced this incentive.
+    synonyms: [pipeline run date, run date, computed date]
+
+  PLANSEQ:
+    type: bigint
+    role: attribute
+    label: Plan
+    description: Sequence id of the compensation plan under which it was computed.
+    synonyms: [plan, plan id]
+
+  RULESEQ:
+    type: bigint
+    role: attribute
+    label: Rule
+    description: Sequence id of the rule that produced this incentive.
+    synonyms: [rule, rule id]
+
+  UNITTYPEFORVALUE:
+    type: bigint
+    role: attribute
+    label: Value Unit Type
+    description: Unit-type sequence id for the incentive value.
+    synonyms: [unit type, value unit type]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each incentive is credited to one participant (payee).
+  - to: cs_position
+    via: POSITIONSEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each incentive is credited to one position.
+  - to: cs_period
+    via: PERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: Each incentive belongs to one compensation period.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [incentiveseq, incentiveseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - INCENTIVESEQ
+    - NAME
+    - PAYEESEQ
+    - POSITIONSEQ
+    - PERIODSEQ
+    - VALUE
+    - PIPELINERUNDATE
+    - PLANSEQ
+    - RULESEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+  byName:
+    type: groupBy
+    by: NAME
+    metric: VALUE
+
+# ---- Enrichment: resolve foreign keys to human-readable labels --------------
+# Deterministic (card-driven). After an incentive result, the executor resolves
+# each row's payee name and position title, same as cs_payment / cs_measurement.
+enrichments:
+  - as: payeeName
+    column: PAYEESEQ
+    via: cs_participant
+    match: PAYEESEQ
+    display: [FIRSTNAME, LASTNAME]
+  - as: positionTitle
+    column: POSITIONSEQ
+    via: cs_position
+    match: RULEELEMENTOWNERSEQ
+    then:
+      column: TITLESEQ
+      via: cs_title
+      match: RULEELEMENTOWNERSEQ
+      display: [NAME]
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  NAME:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

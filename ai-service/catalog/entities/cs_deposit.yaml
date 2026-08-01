@@ -1,0 +1,268 @@
+# =============================================================================
+# ENTITY CARD — CS_DEPOSIT
+# =============================================================================
+# A deposit is a payout/credit amount for a payee's position in a period,
+# produced by a pipeline run, classified by an earning group + earning code.
+# Shares the common join keys PAYEESEQ, POSITIONSEQ, PERIODSEQ, so it plugs into
+# the existing graph automatically. EARNINGGROUPID / EARNINGCODEID are filterable
+# string attributes (same as cs_payment) — NOT graph joins.
+# See cs_payment.yaml for the full explanation of the card structure.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_deposit
+title: Deposits (Payouts)
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_DEPOSIT/CS_V_DEPOSIT
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management deposit records — a payout/credit amount for a payee's
+  position within a compensation period, produced by a pipeline run and
+  classified by an earning group and earning code. Use it to answer "deposits for
+  payee X", "deposits in period Y", "deposits for position Z", or "deposits with
+  earning group / earning code = ...".
+grain: One row per deposit (payee x position x period x earning code x pipeline run).
+domains: [deposits, payouts, credits, incentives]
+synonyms: [deposit, deposits, payout, payouts, credit, credits]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  DEPOSITSEQ:
+    type: bigint
+    role: primary_key
+    label: Deposit ID
+    description: Unique surrogate key of the deposit record.
+    synonyms: [deposit id, deposit sequence, deposit key]
+    filterable:
+      - {key: depositseq, op: eq}
+      - {key: depositseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Deposit Name
+    description: Name of the deposit, e.g. "Metric 2 Payout".
+    synonyms: [deposit name, payout name]
+    filterable:
+      - {key: name, op: eq}
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: The participant the deposit is credited to.
+    synonyms: [payee, participant, recipient]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}
+
+  POSITIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Position
+    description: >
+      The position the deposit is credited to. Equals
+      CS_POSITION.RULEELEMENTOWNERSEQ.
+    synonyms: [position, role assignment]
+    references:
+      entity: cs_position
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: positionseq, op: eq}
+      - {key: positionseq_in, op: in}
+
+  PERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Period
+    description: The compensation period the deposit belongs to.
+    synonyms: [period, pay period, compensation period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: periodseq, op: eq}
+      - {key: periodseq_in, op: in}
+
+  EARNINGGROUPID:
+    type: string
+    role: attribute
+    label: Earning Group
+    description: >
+      HIGH-LEVEL earning category. NOT the same as EARNINGCODEID. Typical values:
+      Commission, Bonus, Adjustment. Same meaning as CS_PAYMENT.EARNINGGROUPID.
+    synonyms: [earning group, group, category]
+    cardinality: low
+    filterable:
+      - {key: earninggroupid, op: eq}
+
+  EARNINGCODEID:
+    type: string
+    role: attribute
+    label: Earning Code
+    description: >
+      SPECIFIC earning code within a group. NOT the same as EARNINGGROUPID.
+      Typical values: MBO, SPIFF, "Metric 2". Same meaning as
+      CS_PAYMENT.EARNINGCODEID.
+    synonyms: [earning code, code, incentive code]
+    cardinality: low
+    filterable:
+      - {key: earningcodeid, op: eq}
+
+  ORIGINTYPEID:
+    type: string
+    role: attribute
+    label: Origin Type
+    description: How the deposit originated, e.g. "calculated", "manual".
+    synonyms: [origin, origin type, source type]
+    cardinality: low
+    filterable:
+      - {key: origintypeid, op: eq}
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Deposit Amount
+    description: The deposit/payout amount. No currency — report as a plain number.
+    synonyms: [amount, value, payout amount, deposit amount]
+    aggregatable: [sum, avg, min, max]
+
+  PREADJUSTEDVALUE:
+    type: decimal
+    role: measure
+    label: Pre-Adjusted Amount
+    description: The amount before adjustments. No currency — plain number.
+    synonyms: [pre-adjusted value, pre adjusted amount]
+    aggregatable: [sum, avg, min, max]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this deposit.
+    synonyms: [pipeline run, run id]
+
+  PIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Pipeline Run Date
+    description: Timestamp of the pipeline run that produced this deposit.
+    synonyms: [pipeline run date, run date, computed date]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the deposit.
+    synonyms: [business unit, business unit map]
+
+  UNITTYPEFORVALUE:
+    type: bigint
+    role: attribute
+    label: Value Unit Type
+    description: Unit-type sequence id for the deposit value.
+    synonyms: [unit type, value unit type]
+
+  UNITTYPEFORPREADJUSTEDVALUE:
+    type: bigint
+    role: attribute
+    label: Pre-Adjusted Value Unit Type
+    description: Unit-type sequence id for the pre-adjusted value.
+    synonyms: [pre-adjusted unit type]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each deposit is credited to one participant (payee).
+  - to: cs_position
+    via: POSITIONSEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each deposit is credited to one position.
+  - to: cs_period
+    via: PERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: Each deposit belongs to one compensation period.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [depositseq, depositseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, earninggroupid, earningcodeid, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - DEPOSITSEQ
+    - NAME
+    - PAYEESEQ
+    - POSITIONSEQ
+    - PERIODSEQ
+    - EARNINGGROUPID
+    - EARNINGCODEID
+    - VALUE
+    - PREADJUSTEDVALUE
+    - ORIGINTYPEID
+    - PIPELINERUNDATE
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+  byEarningGroup:
+    type: groupBy
+    by: EARNINGGROUPID
+    metric: VALUE
+  byEarningCode:
+    type: groupBy
+    by: EARNINGCODEID
+    metric: VALUE
+
+# ---- Enrichment: resolve foreign keys to human-readable labels --------------
+# Deterministic (card-driven). After a deposit result, the executor resolves each
+# row's payee name and position title, same as cs_payment / cs_measurement.
+enrichments:
+  - as: payeeName
+    column: PAYEESEQ
+    via: cs_participant
+    match: PAYEESEQ
+    display: [FIRSTNAME, LASTNAME]
+  - as: positionTitle
+    column: POSITIONSEQ
+    via: cs_position
+    match: RULEELEMENTOWNERSEQ
+    then:
+      column: TITLESEQ
+      via: cs_title
+      match: RULEELEMENTOWNERSEQ
+      display: [NAME]
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  EARNINGGROUPID:
+    cardinality: low
+    updated: null
+    values: []
+  EARNINGCODEID:
+    cardinality: low
+    updated: null
+    values: []
+  ORIGINTYPEID:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

@@ -24,14 +24,16 @@ AGENT_ENTITIES = [
     "cs_position",
     "cs_title",
     "cs_measurement",
+    "cs_deposit",
+    "cs_incentive",
 ]
 
 PERSONA = (
     "You are the Payment-to-Transaction Traceability assistant for an SAP "
     "Incentive Management (SAP Commissions) tenant. You answer questions about "
-    "commission and bonus payments, measurements/credits, the participants who "
-    "received them, their positions and titles, and the time periods these "
-    "records belong to."
+    "commission and bonus payments, measurements/credits, deposits/payouts, "
+    "incentives, the participants who received them, their positions and titles, "
+    "and the time periods these records belong to."
 )
 
 
