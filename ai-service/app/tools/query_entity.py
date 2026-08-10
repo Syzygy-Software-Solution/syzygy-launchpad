@@ -202,6 +202,9 @@ async def query_entity(
     top: int = 200,
     orderby: str | None = None,
     extract_columns: list[str] | None = None,
+    group_by: str | None = None,
+    aggregate: str | None = None,
+    aggregate_column: str | None = None,
 ) -> dict[str, Any]:
     """Query one catalog entity via the Datasphere consumption layer.
 
@@ -210,6 +213,10 @@ async def query_entity(
     values for each requested column computed over ALL returned records (not the
     capped `sample`), so multi-hop feed-forward stays correct even when the
     result set is larger than the sample window.
+
+    `group_by` + `aggregate` ('count' | 'sum' with `aggregate_column`) computes a
+    ranked group-by over ALL fetched records IN CODE (never pushed to OData),
+    answering "which X has the most/highest Y" reliably.
     """
     registry = catalog()
     spec = registry.get(entity)
@@ -328,6 +335,8 @@ async def query_entity(
     # slice, so a bigger window lets it answer "top N by X" honestly
     # when paired with $orderby. 50 keeps prompt tokens bounded.
     sample = [{k: r.get(k) for k in projection} for r in records[:50]]
+    # Full projected rows (bounded) for the deterministic table/download layer.
+    display_rows = [{k: r.get(k) for k in projection} for r in records[:1000]]
     aggregations = _aggregate(spec, records)
 
     result: dict[str, Any] = {
@@ -338,9 +347,32 @@ async def query_entity(
         "rowsCapAt": top,
         "truncated": len(records) >= top,
         "sample": sample,
+        "rows": display_rows,
     }
     if aggregations:
         result.update(aggregations)
+
+    # Group-by aggregation over ALL records (computed in code, never in OData).
+    if group_by:
+        buckets: dict[Any, dict[str, float]] = {}
+        for r in records:
+            key = r.get(group_by)
+            if key in (None, ""):
+                continue
+            b = buckets.setdefault(key, {"count": 0, "amount": 0.0})
+            b["count"] += 1
+            if aggregate == "sum" and aggregate_column:
+                b["amount"] += float(r.get(aggregate_column) or 0)
+        sort_key = "amount" if aggregate == "sum" else "count"
+        groups = sorted(
+            ({"key": k, "count": int(v["count"]), "amount": round(v["amount"], 2)} for k, v in buckets.items()),
+            key=lambda g: -g[sort_key],
+        )
+        result["groups"] = groups
+        result["groupBy"] = group_by
+        result["aggregate"] = aggregate or "count"
+        if aggregate_column:
+            result["aggregateColumn"] = aggregate_column
 
     # Internal feed-forward hook: distinct values over ALL records (order
     # preserved), used by the planner executor to chain multi-hop steps.

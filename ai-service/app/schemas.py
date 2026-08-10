@@ -25,6 +25,10 @@ class ChatResponse(BaseModel):
     reply: str
     agent: str
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
+    datasets: list[dict[str, Any]] = Field(default_factory=list)
+    charts: list[dict[str, Any]] = Field(default_factory=list)
+    model: str = ""
+    tokens: int = 0
 
 
 class HealthResponse(BaseModel):

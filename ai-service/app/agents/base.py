@@ -47,6 +47,9 @@ class AgentRunResult:
     reply: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     raw_messages: list[dict[str, Any]] = field(default_factory=list)
+    datasets: list[dict[str, Any]] = field(default_factory=list)
+    charts: list[dict[str, Any]] = field(default_factory=list)
+    tokens: int = 0
 
 
 async def run_agent(

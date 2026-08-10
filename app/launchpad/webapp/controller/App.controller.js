@@ -315,7 +315,9 @@ sap.ui.define([
         } else if (!oBody || !oBody.reply) {
           this._appendAiMessage("assistant", "**Error:** empty response from AI service.", true);
         } else {
-          this._appendAiMessage("assistant", oBody.reply, false);
+          this._appendAiMessage("assistant", oBody.reply, false, oBody.datasets, oBody.charts);
+          if (oBody.model) oModel.setProperty("/aiChat/model", oBody.model);
+          oModel.setProperty("/aiChat/tokens", (oModel.getProperty("/aiChat/tokens") || 0) + (oBody.tokens || 0));
         }
       } catch (e) {
         this._appendAiMessage("assistant", "**Network error:** " + (e && e.message || e), true);
@@ -325,19 +327,53 @@ sap.ui.define([
       }
     },
 
-    _appendAiMessage: function (sRole, sContent, bError) {
+    _appendAiMessage: function (sRole, sContent, bError, aDatasets, aCharts) {
       const aMessages = (this._uiModel.getProperty("/aiChat/messages") || []).slice();
-      aMessages.push(this._mkMessage(sRole, sContent, bError));
+      aMessages.push(this._mkMessage(sRole, sContent, bError, aDatasets, aCharts));
       this._uiModel.setProperty("/aiChat/messages", aMessages);
     },
 
-    _mkMessage: function (sRole, sContent, bError) {
+    _mkMessage: function (sRole, sContent, bError, aDatasets, aCharts) {
       return {
         role: sRole,
         content: sContent,
         error: !!bError,
-        contentHtml: this._mdToSafeHtml(sContent)
+        contentHtml: this._mdToSafeHtml(sContent),
+        datasets: (aDatasets || []).map(function (d) {
+          return {
+            title: d.title,
+            columns: d.columns || [],
+            rows: d.rows || [],
+            downloadLabel: "Download " + (d.title || "data") + " (CSV)"
+          };
+        }),
+        charts: (aCharts || []).map(function (c) {
+          return { title: c.title, svgHtml: c.svg };
+        })
       };
+    },
+
+    onAiDownloadDataset: function (oEvent) {
+      const oDs = oEvent.getSource().getBindingContext("ui").getObject();
+      if (!oDs || !oDs.columns || !oDs.columns.length) return;
+      const esc = function (v) {
+        v = (v == null) ? "" : String(v);
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      };
+      const sHeader = oDs.columns.map(function (c) { return esc(c.label); }).join(",");
+      const aLines = (oDs.rows || []).map(function (r) {
+        return oDs.columns.map(function (c) { return esc(r[c.key]); }).join(",");
+      });
+      const sCsv = "\ufeff" + [sHeader].concat(aLines).join("\n");
+      const oBlob = new Blob([sCsv], { type: "text/csv;charset=utf-8;" });
+      const sUrl = URL.createObjectURL(oBlob);
+      const oLink = document.createElement("a");
+      oLink.href = sUrl;
+      oLink.download = (oDs.title || "data") + ".csv";
+      document.body.appendChild(oLink);
+      oLink.click();
+      document.body.removeChild(oLink);
+      URL.revokeObjectURL(sUrl);
     },
 
     _scrollAiToBottom: function () {
@@ -371,8 +407,9 @@ sap.ui.define([
         return "<pre><code>" + code.replace(/\n$/, "") + "</code></pre>";
       });
 
-      // 3. Pipe tables — minimal: header | separator | body lines.
-      s = s.replace(/(^|\n)((?:\|[^\n]+\|\n)+)/g, function (_m, lead, block) {
+      // 3. Pipe tables — minimal: header | separator | body lines. The last
+      // row may end the string with no trailing newline, so allow \n or EOS.
+      s = s.replace(/(^|\n)((?:\|[^\n]+\|(?:\n|$))+)/g, function (_m, lead, block) {
         const aLines = block.trim().split(/\n/);
         if (aLines.length < 2) return lead + block;
         const aSep = aLines[1].split("|").map(function (c) { return c.trim(); }).filter(Boolean);

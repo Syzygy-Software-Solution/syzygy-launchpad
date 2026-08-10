@@ -11,12 +11,13 @@ Routing strategy:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .agents.base import Agent, AgentRunResult
 from .agents.payment_traceability import build_agent as build_payment_agent
 from .aicore_client import chat_completion
+from .config import get_settings
 from .planner import run_planner_agent
 
 log = logging.getLogger(__name__)
@@ -27,6 +28,10 @@ class OrchestratorResult:
     agent: str
     reply: str
     tool_calls: list[dict[str, Any]]
+    datasets: list[dict[str, Any]] = field(default_factory=list)
+    charts: list[dict[str, Any]] = field(default_factory=list)
+    model: str = ""
+    tokens: int = 0
 
 
 class Orchestrator:
@@ -85,6 +90,10 @@ class Orchestrator:
             agent=agent_name,
             reply=result.reply,
             tool_calls=result.tool_calls,
+            datasets=result.datasets,
+            charts=result.charts,
+            model=get_settings().genai_chat_model,
+            tokens=result.tokens,
         )
 
 

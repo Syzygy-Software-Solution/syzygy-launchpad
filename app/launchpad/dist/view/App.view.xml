@@ -1496,6 +1496,12 @@
                   <FlexBox direction="Row" justifyContent="{= ${ui>role} === 'user' ? 'End' : 'Start' }" wrap="NoWrap">
                     <VBox class="{= ${ui>role} === 'user' ? 'szAiMsgBubble szAiMsgUser' : (${ui>error} ? 'szAiMsgBubble szAiMsgError' : 'szAiMsgBubble szAiMsgAssistant') }">
                       <core:HTML content="{ui>contentHtml}" sanitizeContent="false"/>
+                      <VBox items="{ui>charts}" class="szAiCharts">
+                        <core:HTML content="{ui>svgHtml}" sanitizeContent="false"/>
+                      </VBox>
+                      <HBox items="{ui>datasets}" wrap="Wrap" class="szAiDownloads">
+                        <Button text="{ui>downloadLabel}" icon="sap-icon://download" type="Transparent" press=".onAiDownloadDataset"/>
+                      </HBox>
                     </VBox>
                   </FlexBox>
                 </CustomListItem>
@@ -1510,27 +1516,31 @@
           </ScrollContainer>
 
           <!-- input bar -->
-          <HBox alignItems="End" class="szAiInputBar">
+          <VBox class="szAiInputBar">
             <TextArea
               id="aiChatInput"
               value="{ui>/aiChat/input}"
               valueLiveUpdate="true"
-              placeholder="Ask about payments… (Enter to send, Shift+Enter for newline)"
+              placeholder="Ask about payments…  (Enter to send, Shift+Enter for a new line)"
               growing="true"
-              growingMaxLines="4"
-              rows="1"
+              growingMaxLines="8"
+              rows="3"
               enabled="{= !${ui>/aiChat/busy} }"
-              class="szAiTextInput">
-              <layoutData><FlexItemData growFactor="1" shrinkFactor="1" minWidth="0px"/></layoutData>
-            </TextArea>
-            <Button
-              icon="sap-icon://paper-plane"
-              type="Emphasized"
-              tooltip="Send"
-              enabled="{= !${ui>/aiChat/busy} &amp;&amp; !!${ui>/aiChat/input} }"
-              press=".onAiSend"
-              class="sapUiTinyMarginBegin"/>
-          </HBox>
+              class="szAiTextInput"/>
+            <HBox class="szAiInputFooter" justifyContent="SpaceBetween" alignItems="Center">
+              <HBox alignItems="Center" class="szAiMetaBar">
+                <core:Icon src="sap-icon://ai" class="szAiMetaIcon"/>
+                <Text text="{ui>/aiChat/model}" class="szAiModelTag"/>
+                <Text text="{= ${ui>/aiChat/tokens} + ' tokens' }" class="szAiTokenTag"/>
+              </HBox>
+              <Button
+                icon="sap-icon://paper-plane"
+                type="Emphasized"
+                tooltip="Send"
+                enabled="{= !${ui>/aiChat/busy} &amp;&amp; !!${ui>/aiChat/input} }"
+                press=".onAiSend"/>
+            </HBox>
+          </VBox>
         </VBox>
 
       </HBox>

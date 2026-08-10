@@ -115,14 +115,32 @@ html[data-sz-theme="sap_horizon_dark"] .szAiInputBar {
 
 .szAiTextInput.sapMTextArea { width: 100%; }
 .szAiTextInput.sapMTextArea .sapMTextAreaInner {
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   border-color: rgba(99, 102, 241, 0.25) !important;
+  min-height: 78px !important;
+  padding: 0.6rem 0.8rem !important;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .szAiTextInput.sapMTextArea .sapMTextAreaInner:focus {
   border-color: #6366f1 !important;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
 }
+
+/* input footer — model tag + token counter */
+.szAiInputFooter { margin-top: 0.45rem; padding: 0 0.15rem; }
+.szAiMetaBar { gap: 0.5rem; }
+.szAiMetaIcon.sapUiIcon { color: #6366f1; font-size: 0.95rem; }
+.szAiModelTag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.10);
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+}
+.szAiTokenTag { font-size: 0.72rem; color: var(--sapContent_LabelColor, #64748b); }
+html[data-sz-theme="sap_horizon_dark"] .szAiModelTag { background: rgba(167, 139, 250, 0.18); color: #d6ccff; }
+html[data-sz-theme="sap_horizon_dark"] .szAiTokenTag { color: #a3adba; }
 
 /* ---- AI chat bubbles ----
    .szAiChatList is the inner VBox; in full-screen we centre it and cap
@@ -164,10 +182,15 @@ html[data-sz-theme="sap_horizon_dark"] .szAiInputBar {
 .szMainLayout.szAiFullActive .szAiMsgBubble { max-width: 780px; }
 
 .szAiMsgUser {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: #ffffff;
+  background: rgba(17, 24, 39, 0.06);
+  color: var(--sapTextColor, #1d2d3e);
   border-bottom-right-radius: 4px;
-  border: none;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+}
+html[data-sz-theme="sap_horizon_dark"] .szAiMsgUser {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e5e9ef;
+  border-color: rgba(255, 255, 255, 0.10);
 }
 .szAiMsgAssistant {
   background: #ffffff;
@@ -199,7 +222,8 @@ html[data-sz-theme="sap_horizon_dark"] .szAiMsgAssistant {
   font-size: 0.85em;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.szAiMsgUser code { background: rgba(255,255,255,0.22); color: #ffffff; }
+.szAiMsgUser code { background: rgba(99, 102, 241, 0.10); color: #4f46e5; }
+html[data-sz-theme="sap_horizon_dark"] .szAiMsgUser code { background: rgba(167, 139, 250, 0.15); color: #c4b5fd; }
 html[data-sz-theme="sap_horizon_dark"] .szAiMsgAssistant code {
   background: rgba(167, 139, 250, 0.15);
   color: #c4b5fd;
@@ -212,7 +236,7 @@ html[data-sz-theme="sap_horizon_dark"] .szAiMsgAssistant code {
   margin: 0.4rem 0;
   font-size: 0.8rem;
 }
-.szAiMsgUser pre { background: rgba(255,255,255,0.18); }
+.szAiMsgUser pre { background: rgba(99, 102, 241, 0.08); }
 .szAiTable {
   border-collapse: collapse;
   margin: 0.4rem 0;
@@ -225,6 +249,10 @@ html[data-sz-theme="sap_horizon_dark"] .szAiMsgAssistant code {
   text-align: left;
 }
 .szAiTable th { background: rgba(99, 102, 241, 0.08); font-weight: 600; }
+
+.szAiCharts { margin: 0.4rem 0; }
+.szAiCharts svg { background: #fff; border: 1px solid #eef0f4; border-radius: 6px; padding: 4px; }
+.szAiDownloads { margin-top: 0.35rem; gap: 0.4rem; }
 
 .szAiThinking {
   padding: 0.5rem 0.5rem;

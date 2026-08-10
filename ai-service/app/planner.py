@@ -36,6 +36,10 @@ log = logging.getLogger(__name__)
 MAX_PLAN_STEPS = 8
 
 
+def _usage(resp: dict[str, Any]) -> int:
+    return int((resp.get("usage") or {}).get("total_tokens") or 0)
+
+
 # ---------------------------------------------------------------------------
 # Plan tool spec (advertised to the planner LLM)
 # ---------------------------------------------------------------------------
@@ -87,7 +91,33 @@ RUN_PLAN_TOOL_SPEC: dict[str, Any] = {
                                 "type": "string",
                                 "description": (
                                     "Optional OData $orderby, e.g. 'VALUE desc'. "
-                                    "Required for top-N / highest / lowest asks."
+                                    "Required for top-N / highest / lowest asks. "
+                                    "NEVER put aggregate functions like count() "
+                                    "here — use group_by/aggregate instead."
+                                ),
+                            },
+                            "group_by": {
+                                "type": "string",
+                                "description": (
+                                    "Column to group rows by for analytical / "
+                                    "ranking questions (e.g. 'PAYEESEQ' for 'which "
+                                    "payee has the most payments', 'EARNINGCODEID' "
+                                    "for 'which earning code has the highest "
+                                    "total'). Pair with aggregate and a high top."
+                                ),
+                            },
+                            "aggregate": {
+                                "type": "string",
+                                "description": (
+                                    "'count' (rows per group) or 'sum' (sum of a "
+                                    "measure per group). Required with group_by."
+                                ),
+                            },
+                            "aggregate_column": {
+                                "type": "string",
+                                "description": (
+                                    "Measure column to sum when aggregate='sum' "
+                                    "(e.g. 'VALUE')."
                                 ),
                             },
                         },
@@ -200,6 +230,19 @@ for the person's first or last name, and wait for the answer.
 # Top-N / highest / lowest
 Set orderby (e.g. "VALUE desc") and top=N on the final data step. Never rely on
 row order without orderby.
+
+# Analytical / ranking questions ("which X has the most/least Y", "top X by
+# count/total", "who did the most", "highest total per X")
+Do NOT put aggregate functions (count(), sum()) into orderby — the source
+rejects them. Instead use ONE data step with group_by + aggregate:
+- "which payee has the most payments in <period>":
+    ...resolve the period...
+    sN cs_payment {{periodseq_in: "$..PERIODSEQ"}} group_by="PAYEESEQ" aggregate="count"
+- "which earning code has the highest total for <period>":
+    sN cs_payment {{periodseq_in: "$..PERIODSEQ"}} group_by="EARNINGCODEID" aggregate="sum" aggregate_column="VALUE"
+- "top positions by deposit amount": group_by="POSITIONSEQ" aggregate="sum" aggregate_column="VALUE"
+The grouping/counting/ranking is done for you in code over all fetched rows.
+group_by takes a COLUMN name (PAYEESEQ, EARNINGCODEID, POSITIONSEQ, ...).
 
 # Field discipline
 EARNINGGROUPID != EARNINGCODEID ("group" vs "code" are load-bearing).
@@ -411,16 +454,30 @@ async def _execute_plan(
         # complete even for large result sets.
         spec = catalog().get(entity)
         extract_cols = list(spec.projection) if (spec and spec.projection) else None
+        group_by = step.get("group_by")
+        # Group-by aggregation should cover as many rows as possible.
+        default_top = 1000 if group_by else 200
         result = await query_entity(
             entity=entity,
             filters=resolved_filters,
-            top=int(step["top"]) if step.get("top") else 200,
+            top=int(step["top"]) if step.get("top") else default_top,
             orderby=step.get("orderby"),
             extract_columns=extract_cols,
+            group_by=group_by,
+            aggregate=step.get("aggregate"),
+            aggregate_column=step.get("aggregate_column"),
         )
+        # Resolve group keys to human labels via the entity's enrichment rule.
+        if result.get("ok") and result.get("groups") and group_by:
+            try:
+                result["groupLabels"] = await _resolve_group_labels(
+                    entity, group_by, [g["key"] for g in result["groups"]]
+                )
+            except Exception:  # noqa: BLE001 - labels are best-effort
+                log.exception("group label resolution failed")
         trace.append({
             "name": "query_entity",
-            "arguments": {"entity": entity, "filters": resolved_filters, **({"orderby": step["orderby"]} if step.get("orderby") else {})},
+            "arguments": {"entity": entity, "filters": resolved_filters, **({"orderby": step["orderby"]} if step.get("orderby") else {}), **({"group_by": group_by} if group_by else {})},
             "result": result,
             "step": step_id,
         })
@@ -506,6 +563,38 @@ async def _resolve_lookup(
         source_values=_distinct(src_to_inter.values()),
     )
     return {src: deeper.get(iv, "") for src, iv in src_to_inter.items()}
+
+
+def _default_display(spec: Any) -> list[str]:
+    if "NAME" in spec.columns:
+        return ["NAME"]
+    for n in (spec.projection or []):
+        c = spec.columns.get(n)
+        if c and c.role == "attribute" and c.type == "string":
+            return [n]
+    return []
+
+
+async def _resolve_group_labels(entity: str, group_by: str, keys: list[Any]) -> dict[Any, str]:
+    """Resolve group-by key values (e.g. PAYEESEQ) to human labels."""
+    spec = catalog().get(entity)
+    if not spec:
+        return {}
+    for rule in spec.enrichments or []:
+        if rule.get("column") == group_by:
+            return await _resolve_lookup(
+                rule["via"], rule["match"], rule.get("display"), rule.get("then"), keys
+            )
+    col = spec.columns.get(group_by)
+    if col and col.references:
+        via = col.references.get("entity")
+        match = col.references.get("column", group_by)
+        via_spec = catalog().get(via or "")
+        if via_spec:
+            display = _default_display(via_spec)
+            if display:
+                return await _resolve_lookup(via, match, display, None, keys)
+    return {}
 
 
 async def _auto_enrich(trace: list[dict[str, Any]]) -> dict[str, dict[Any, str]]:
@@ -608,7 +697,22 @@ _BREAKDOWN_RE = re.compile(
     r"break\s?down|\bby earning (code|group)\b|\bgroup by\b|\bby name\b|\bby group\b|\bby code\b",
     re.I,
 )
+_SHOWALL_RE = re.compile(
+    r"\ball\s+(the\s+)?(rows|records|\d+)\b|\bshow (me )?all\b|\bevery (row|record)\b"
+    r"|\bentire (list|table)\b|\bfull (list|table|data)\b|\beverything\b",
+    re.I,
+)
+_CHART_RE = re.compile(
+    r"\b(chart|graph|plot|pie|bar\s?chart|bar\s?graph|line\s?chart|line\s?graph"
+    r"|visuali[sz]e|graphical(ly)?)\b",
+    re.I,
+)
 _MAX_TABLE_ROWS = 15
+_MAX_SHOWALL_ROWS = 300
+_PALETTE = [
+    "#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6",
+    "#ec4899", "#14b8a6", "#f97316", "#3b82f6", "#a3e635", "#eab308",
+]
 
 
 def _fmt_num(value: Any, decimals: int = 2) -> str:
@@ -659,31 +763,43 @@ def _enrich_get(enrichment: dict[str, dict[Any, str]], name: str, val: Any) -> s
 
 
 def _table_columns(spec: Any, row_keys: set[str]) -> list[tuple[str, str, str]]:
-    """Return (kind, column, header) tuples for the table, capped and ordered."""
+    """Return (kind, column, header) tuples for the table.
+
+    Guarantees the primary measure (the amount) is always kept, then fills the
+    remaining budget with id/payee/position/period + string attributes.
+    """
     proj = spec.projection or list(spec.columns)
-    plan: list[tuple[str, str, str]] = []
+    ids: list[tuple[str, str, str]] = []
 
     pk = next((c.name for c in spec.columns.values() if c.role == "primary_key"), None)
     if pk and pk in row_keys:
-        plan.append(("id", pk, spec.columns[pk].label or pk))
+        ids.append(("id", pk, spec.columns[pk].label or pk))
     if "PAYEESEQ" in row_keys:
-        plan.append(("payee", "PAYEESEQ", "Payee"))
+        ids.append(("payee", "PAYEESEQ", "Payee"))
     if "POSITIONSEQ" in row_keys:
-        plan.append(("position", "POSITIONSEQ", "Position"))
+        ids.append(("position", "POSITIONSEQ", "Position"))
     if "PERIODSEQ" in row_keys:
-        plan.append(("period", "PERIODSEQ", "Period"))
-    for name in proj:  # string attributes
-        col = spec.columns.get(name)
-        if col and col.role == "attribute" and col.type == "string" and name in row_keys:
-            plan.append(("attr", name, col.label or name))
-    for name in proj:  # measures
-        col = spec.columns.get(name)
-        if col and col.role == "measure" and name in row_keys:
-            plan.append(("num", name, col.label or name))
+        ids.append(("period", "PERIODSEQ", "Period"))
+
+    attrs = [
+        ("attr", n, spec.columns[n].label or n)
+        for n in proj
+        if (c := spec.columns.get(n)) and c.role == "attribute" and c.type == "string" and n in row_keys
+    ]
+    measures = [
+        ("num", n, spec.columns[n].label or n)
+        for n in proj
+        if (c := spec.columns.get(n)) and c.role == "measure" and n in row_keys
+    ]
+    primary_measure = measures[:1]
+
+    max_cols = 8
+    budget = max_cols - len(ids) - len(primary_measure)
+    combined = ids + attrs[: max(0, budget)] + primary_measure
 
     seen: set[str] = set()
-    deduped = [c for c in plan if c[1] not in seen and not seen.add(c[1])]
-    return deduped[:7]
+    out = [c for c in combined if c[1] not in seen and not seen.add(c[1])]
+    return out[:max_cols]
 
 
 def _markdown_table(
@@ -691,9 +807,10 @@ def _markdown_table(
     rows: list[dict[str, Any]],
     enrichment: dict[str, dict[Any, str]],
     period_names: dict[Any, str],
+    max_rows: int = _MAX_TABLE_ROWS,
 ) -> str:
     row_keys: set[str] = set()
-    for r in rows[:_MAX_TABLE_ROWS]:
+    for r in rows[:50]:
         row_keys.update(r.keys())
     cols = _table_columns(spec, row_keys)
     if not cols:
@@ -702,7 +819,7 @@ def _markdown_table(
     header = "| " + " | ".join(_cell(h) for _, _, h in cols) + " |"
     sep = "|" + "|".join("---" for _ in cols) + "|"
     lines = [header, sep]
-    for r in rows[:_MAX_TABLE_ROWS]:
+    for r in rows[:max_rows]:
         cells = []
         for kind, name, _ in cols:
             v = r.get(name)
@@ -749,32 +866,84 @@ def _breakdown_answer(
     return head + "\n\n" + "\n".join(lines) + f"\n\n**Total: {_fmt_money(total)}**"
 
 
-def _try_deterministic_answer(
-    question: str,
-    trace: list[dict[str, Any]],
+def _entity_noun(spec: Any) -> str:
+    return (spec.domains[0] if spec.domains else spec.name.replace("cs_", "")).strip()
+
+
+def _fact_steps(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """All ok steps whose entity is a fact table, in execution order."""
+    out: list[dict[str, Any]] = []
+    for entry in trace:
+        res = entry.get("result") or {}
+        if not res.get("ok"):
+            continue
+        spec = catalog().get((entry.get("arguments") or {}).get("entity") or "")
+        if spec and _is_fact_entity(spec):
+            out.append(entry)
+    return out
+
+
+def _fact_table_block(
+    entry: dict[str, Any],
     enrichment: dict[str, dict[Any, str]],
     period_names: dict[Any, str],
-) -> str | None:
-    """Build the reply for fact-entity results. None => let the LLM answer."""
-    entry = _primary_fact_step(trace)
-    if entry is None:
-        return None
+    header: bool,
+    max_rows: int = _MAX_TABLE_ROWS,
+) -> str:
+    """Summary line + Markdown table for one fact step (header for multi-entity)."""
     res = entry["result"]
     spec = catalog().get(entry["arguments"]["entity"])
-    if spec is None:
-        return None
-
-    rows = res.get("sample") or []
-    rows_returned = res.get("rowsReturned", len(rows))
+    rows = res.get("rows") or res.get("sample") or []
+    rr = res.get("rowsReturned", len(rows))
     total = res.get("totalValue")
-    noun = (spec.domains[0] if spec.domains else spec.name.replace("cs_", "")).strip()
-    periods = _distinct(
-        period_names.get(r.get("PERIODSEQ")) for r in rows if period_names.get(r.get("PERIODSEQ"))
+    noun = _entity_noun(spec)
+    period_txt = ", ".join(
+        _distinct(period_names.get(r.get("PERIODSEQ")) for r in rows if period_names.get(r.get("PERIODSEQ")))
     )
-    period_txt = ", ".join(periods)
+
+    if rr == 0:
+        base = f"No {noun} found" + (f" for **{period_txt}**" if period_txt else "") + "."
+        return f"**{noun.capitalize()}**\n\n{base}" if header else base
+
+    if header:
+        lead = f"**{noun.capitalize()}** — **{rr:,}** records"
+        if total is not None:
+            lead += f", total **{_fmt_money(total)}**"
+    else:
+        lead = f"**{rr:,}** {noun}"
+        if period_txt:
+            lead += f" for **{period_txt}**"
+        if total is not None:
+            lead += f". Total value: **{_fmt_money(total)}**"
+    lead += "."
+
+    table = _markdown_table(spec, rows, enrichment, period_names, max_rows)
+    parts = [lead, "", table] if table else [lead]
+    shown = min(len(rows), max_rows)
+    if rr > shown:
+        parts.append(f"\nShowing {shown} of {rr:,} rows — use the download button below for all rows.")
+    return "\n".join(parts)
+
+
+def _single_fact_answer(
+    question: str,
+    entry: dict[str, Any],
+    enrichment: dict[str, dict[Any, str]],
+    period_names: dict[Any, str],
+    max_rows: int = _MAX_TABLE_ROWS,
+) -> str:
+    res = entry["result"]
+    spec = catalog().get(entry["arguments"]["entity"])
+    rows = res.get("rows") or res.get("sample") or []
+    rr = res.get("rowsReturned", len(rows))
+    total = res.get("totalValue")
+    noun = _entity_noun(spec)
+    period_txt = ", ".join(
+        _distinct(period_names.get(r.get("PERIODSEQ")) for r in rows if period_names.get(r.get("PERIODSEQ")))
+    )
 
     if _COUNT_RE.search(question):
-        s = f"There are **{rows_returned:,}** {noun}"
+        s = f"There are **{rr:,}** {noun}"
         if period_txt:
             s += f" for **{period_txt}**"
         if total is not None:
@@ -786,23 +955,403 @@ def _try_deterministic_answer(
         if bt:
             return bt
 
-    if rows_returned == 0:
-        s = f"No {noun} found"
-        if period_txt:
-            s += f" for **{period_txt}**"
-        return s + "."
+    return _fact_table_block(entry, enrichment, period_names, header=False, max_rows=max_rows)
 
-    lead = f"**{rows_returned:,}** {noun}"
-    if period_txt:
-        lead += f" for **{period_txt}**"
-    if total is not None:
-        lead += f". Total value: **{_fmt_money(total)}**"
-    lead += "."
-    table = _markdown_table(spec, rows, enrichment, period_names)
-    parts = [lead, "", table] if table else [lead]
-    if res.get("truncated"):
-        parts.append(f"\nShowing the first {min(len(rows), _MAX_TABLE_ROWS)} of {rows_returned:,}+ rows.")
-    return "\n".join(parts)
+
+def _group_header(spec: Any, group_by: str) -> str:
+    special = {"PAYEESEQ": "Payee", "POSITIONSEQ": "Position", "PERIODSEQ": "Period"}
+    if group_by in special:
+        return special[group_by]
+    col = spec.columns.get(group_by)
+    return col.label if col else group_by
+
+
+def _group_label(
+    entry: dict[str, Any], key: Any, period_names: dict[Any, str]
+) -> str:
+    labels = entry["result"].get("groupLabels") or {}
+    lbl = labels.get(key) or labels.get(str(key))
+    if lbl:
+        return lbl
+    if entry["result"].get("groupBy") == "PERIODSEQ":
+        return period_names.get(key) or str(key)
+    return str(key)
+
+
+def _grouped_block(
+    entry: dict[str, Any], period_names: dict[Any, str], header: bool
+) -> str:
+    res = entry["result"]
+    spec = catalog().get(entry["arguments"]["entity"])
+    groups = res.get("groups") or []
+    group_by = res.get("groupBy")
+    agg = res.get("aggregate", "count")
+    noun = _entity_noun(spec)
+    gh = _group_header(spec, group_by)
+
+    if not groups:
+        return f"No {noun} found."
+
+    top = groups[0]
+    top_lbl = _group_label(entry, top["key"], period_names)
+    if agg == "sum":
+        headline = f"**{top_lbl}** leads with **{_fmt_money(top['amount'])}** total across {top['count']:,} {noun}."
+    else:
+        headline = f"**{top_lbl}** leads with **{top['count']:,}** {noun}."
+    if header:
+        headline = f"**{noun.capitalize()} by {gh}** — " + headline
+
+    lines = [f"| {gh} | Count | Total |", "|---|---:|---:|"]
+    for g in groups[:15]:
+        lines.append(
+            f"| {_cell(_group_label(entry, g['key'], period_names))} | {g['count']:,} | {_fmt_money(g['amount'])} |"
+        )
+    tail = f"\nShowing the top {min(len(groups), 15)} of {len(groups):,}." if len(groups) > 15 else ""
+    return headline + "\n\n" + "\n".join(lines) + tail
+
+
+def _try_deterministic_answer(
+    question: str,
+    trace: list[dict[str, Any]],
+    enrichment: dict[str, dict[Any, str]],
+    period_names: dict[Any, str],
+) -> str | None:
+    """Build the reply for fact-entity results. None => let the LLM answer.
+
+    Grouped (analytical) results render a ranked table; otherwise renders every
+    fact step's rows, with count/breakdown shortcuts for single-entity questions.
+    """
+    fact_steps = _fact_steps(trace)
+    if not fact_steps:
+        return None
+
+    grouped = [e for e in fact_steps if e["result"].get("groups")]
+    if grouped:
+        multi = len(grouped) > 1
+        return "\n\n".join(_grouped_block(e, period_names, header=multi) for e in grouped)
+
+    max_rows = _MAX_SHOWALL_ROWS if _SHOWALL_RE.search(question) else _MAX_TABLE_ROWS
+    if len(fact_steps) == 1:
+        return _single_fact_answer(question, fact_steps[0], enrichment, period_names, max_rows)
+    sections = [
+        _fact_table_block(e, enrichment, period_names, header=True, max_rows=max_rows)
+        for e in fact_steps
+    ]
+    return "\n\n".join(sections)
+
+
+# ---------------------------------------------------------------------------
+# Datasets (for CSV download) + deterministic SVG charts (never LLM-drawn)
+# ---------------------------------------------------------------------------
+def _build_datasets(
+    trace: list[dict[str, Any]],
+    enrichment: dict[str, dict[Any, str]],
+    period_names: dict[Any, str],
+) -> list[dict[str, Any]]:
+    """Structured, fully-enriched rows per fact entity, for CSV download."""
+    datasets: list[dict[str, Any]] = []
+    for entry in _fact_steps(trace):
+        res = entry["result"]
+        spec = catalog().get(entry["arguments"]["entity"])
+
+        # Grouped (analytical) result -> a ranked dataset.
+        if res.get("groups"):
+            group_by = res.get("groupBy")
+            gh = _group_header(spec, group_by)
+            columns = [{"key": "group", "label": gh}, {"key": "count", "label": "Count"}, {"key": "total", "label": "Total"}]
+            rows = [
+                {
+                    "group": _group_label(entry, g["key"], period_names),
+                    "count": f"{g['count']:,}",
+                    "total": _fmt_money(g["amount"]),
+                }
+                for g in res["groups"]
+            ]
+            datasets.append({
+                "title": f"{_entity_noun(spec).capitalize()} by {gh}",
+                "entity": spec.name,
+                "columns": columns,
+                "rows": rows,
+                "count": len(rows),
+            })
+            continue
+
+        all_rows = res.get("rows") or res.get("sample") or []
+        if not all_rows:
+            continue
+        row_keys: set[str] = set()
+        for r in all_rows[:50]:
+            row_keys.update(r.keys())
+        cols = _table_columns(spec, row_keys)
+        columns = [{"key": name, "label": header} for _, name, header in cols]
+        out_rows = []
+        for r in all_rows:
+            o: dict[str, Any] = {}
+            for kind, name, _ in cols:
+                v = r.get(name)
+                if kind == "payee":
+                    o[name] = _enrich_get(enrichment, "payeeName", v)
+                elif kind == "position":
+                    o[name] = _enrich_get(enrichment, "positionTitle", v)
+                elif kind == "period":
+                    o[name] = period_names.get(v) or ("" if v is None else str(v))
+                elif kind == "num":
+                    o[name] = _fmt_money(v)
+                else:
+                    o[name] = "" if v is None else str(v)
+            out_rows.append(o)
+        datasets.append({
+            "title": _entity_noun(spec).capitalize(),
+            "entity": spec.name,
+            "columns": columns,
+            "rows": out_rows,
+            "count": res.get("rowsReturned", len(out_rows)),
+        })
+    return datasets
+
+
+def _pick_breakdown(question: str, res: dict[str, Any]) -> tuple[str | None, dict | None]:
+    q = question.lower()
+    if "group" in q and res.get("byEarningGroup"):
+        return "Earning Group", res["byEarningGroup"]
+    if "code" in q and res.get("byEarningCode"):
+        return "Earning Code", res["byEarningCode"]
+    if res.get("byName"):
+        return "Name", res["byName"]
+    if res.get("byEarningCode"):
+        return "Earning Code", res["byEarningCode"]
+    if res.get("byEarningGroup"):
+        return "Earning Group", res["byEarningGroup"]
+    return None, None
+
+
+def _build_charts(question: str, trace: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Backend-drawn SVG charts (deterministic) — only when a chart is asked for."""
+    if not _CHART_RE.search(question):
+        return []
+    q = question.lower()
+    ctype = "pie" if "pie" in q else ("line" if "line" in q else "bar")
+    charts: list[dict[str, str]] = []
+    for entry in _fact_steps(trace):
+        res = entry["result"]
+        spec = catalog().get(entry["arguments"]["entity"])
+
+        # Grouped result -> chart the ranked groups directly.
+        if res.get("groups"):
+            gh = _group_header(spec, res.get("groupBy"))
+            use_amount = res.get("aggregate") == "sum"
+            data = [
+                (str(_group_label(entry, g["key"], {})), float(g["amount"] if use_amount else g["count"]))
+                for g in res["groups"][:12]
+            ]
+            data = [d for d in data if d[1] != 0] or data
+            if data:
+                title = f"{_entity_noun(spec).capitalize()} by {gh}"
+                charts.append({"title": title, "svg": _svg_chart(ctype, title, data)})
+            continue
+
+        label, agg = _pick_breakdown(question, res)
+        if not agg:
+            continue
+        data = [(str(k), float(v.get("amount") or 0)) for k, v in agg.items()]
+        data = [d for d in data if d[1] != 0] or data
+        data.sort(key=lambda x: -x[1])
+        data = data[:12]
+        if not data:
+            continue
+        title = f"{_entity_noun(spec).capitalize()} by {label}"
+        charts.append({"title": title, "svg": _svg_chart(ctype, title, data)})
+    return charts
+
+
+def _xml_escape(text: str) -> str:
+    return (
+        str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+
+
+def _svg_chart(kind: str, title: str, data: list[tuple[str, float]]) -> str:
+    if kind == "pie":
+        return _svg_pie(title, data)
+    if kind == "line":
+        return _svg_line(title, data)
+    return _svg_bar(title, data)
+
+
+def _svg_open(w: int, h: int, title: str) -> list[str]:
+    return [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" '
+        f'width="100%" style="max-width:{w}px;height:auto">',
+        f'<text x="{w/2}" y="20" text-anchor="middle" font-size="14" '
+        f'font-weight="600" fill="#1e293b">{_xml_escape(title)}</text>',
+    ]
+
+
+def _svg_bar(title: str, data: list[tuple[str, float]]) -> str:
+    W, H, pl, pb, pt, pr = 540, 320, 55, 80, 34, 12
+    n = len(data)
+    maxv = max(v for _, v in data) or 1
+    plot_w, plot_h = W - pl - pr, H - pt - pb
+    gap = plot_w / n
+    bw = gap * 0.6
+    p = _svg_open(W, H, title)
+    p.append(f'<line x1="{pl}" y1="{pt}" x2="{pl}" y2="{H-pb}" stroke="#cbd5e1"/>')
+    p.append(f'<line x1="{pl}" y1="{H-pb}" x2="{W-pr}" y2="{H-pb}" stroke="#cbd5e1"/>')
+    for i, (name, val) in enumerate(data):
+        x = pl + gap * i + (gap - bw) / 2
+        bh = plot_h * (val / maxv)
+        y = (H - pb) - bh
+        color = _PALETTE[i % len(_PALETTE)]
+        p.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="{color}" rx="2"/>')
+        p.append(f'<text x="{x+bw/2:.1f}" y="{y-4:.1f}" text-anchor="middle" font-size="10" fill="#334155">{_xml_escape(_fmt_money(val))}</text>')
+        cx = x + bw / 2
+        p.append(f'<text x="{cx:.1f}" y="{H-pb+14:.1f}" text-anchor="end" font-size="10" fill="#475569" transform="rotate(-35 {cx:.1f} {H-pb+14:.1f})">{_xml_escape(name[:18])}</text>')
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _svg_line(title: str, data: list[tuple[str, float]]) -> str:
+    W, H, pl, pb, pt, pr = 540, 320, 55, 80, 34, 12
+    n = len(data)
+    maxv = max(v for _, v in data) or 1
+    plot_w, plot_h = W - pl - pr, H - pt - pb
+    step = plot_w / max(1, n - 1) if n > 1 else plot_w
+    p = _svg_open(W, H, title)
+    p.append(f'<line x1="{pl}" y1="{pt}" x2="{pl}" y2="{H-pb}" stroke="#cbd5e1"/>')
+    p.append(f'<line x1="{pl}" y1="{H-pb}" x2="{W-pr}" y2="{H-pb}" stroke="#cbd5e1"/>')
+    pts = []
+    for i, (name, val) in enumerate(data):
+        x = pl + step * i
+        y = (H - pb) - plot_h * (val / maxv)
+        pts.append(f"{x:.1f},{y:.1f}")
+        p.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="#6366f1"/>')
+        p.append(f'<text x="{x:.1f}" y="{y-6:.1f}" text-anchor="middle" font-size="9" fill="#334155">{_xml_escape(_fmt_money(val))}</text>')
+        p.append(f'<text x="{x:.1f}" y="{H-pb+14:.1f}" text-anchor="end" font-size="10" fill="#475569" transform="rotate(-35 {x:.1f} {H-pb+14:.1f})">{_xml_escape(name[:18])}</text>')
+    p.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="#6366f1" stroke-width="2"/>')
+    p.append("</svg>")
+    return "".join(p)
+
+
+def _svg_pie(title: str, data: list[tuple[str, float]]) -> str:
+    import math
+
+    W, H, cx, cy, r = 540, 340, 160, 190, 115
+    total = sum(v for _, v in data) or 1
+    p = _svg_open(W, H, title)
+    ang = -math.pi / 2
+    for i, (name, val) in enumerate(data):
+        frac = val / total
+        a2 = ang + frac * 2 * math.pi
+        x1, y1 = cx + r * math.cos(ang), cy + r * math.sin(ang)
+        x2, y2 = cx + r * math.cos(a2), cy + r * math.sin(a2)
+        large = 1 if frac > 0.5 else 0
+        color = _PALETTE[i % len(_PALETTE)]
+        p.append(f'<path d="M{cx},{cy} L{x1:.1f},{y1:.1f} A{r},{r} 0 {large} 1 {x2:.1f},{y2:.1f} Z" fill="{color}"/>')
+        ly = 70 + i * 22
+        p.append(f'<rect x="330" y="{ly-11}" width="12" height="12" fill="{color}" rx="2"/>')
+        p.append(f'<text x="348" y="{ly}" font-size="11" fill="#334155">{_xml_escape(name[:18])} ({frac*100:.0f}%)</text>')
+        ang = a2
+    p.append("</svg>")
+    return "".join(p)
+
+
+# ---------------------------------------------------------------------------
+# Narrator — a warm intro + a proactive follow-up around deterministic tables
+# ---------------------------------------------------------------------------
+_NARRATOR_PROMPT = """\
+You add a warm, human, colleague-like tone around a data answer that is ALREADY
+shown to the user as tables (you cannot see the tables). Input JSON:
+- question: what the user asked.
+- payee:    the person the data is about (may be null).
+- shown:    record types already displayed, each {type, count, total}.
+- related:  OTHER record types available to explore that were NOT shown.
+
+Write EXACTLY two parts separated by a line containing only "###FOLLOWUP###":
+1) INTRO: one or two friendly, natural sentences introducing the results —
+   mention the payee (if any), the period/context, and what kinds of records are
+   shown. Conversational, not a data dump; don't list every number.
+2) FOLLOWUP: one short, proactive question offering a sensible next step. Draw
+   from `offers`: you can suggest visualising the data as a chart (bar/pie/line),
+   downloading the full data as CSV, or exploring a related record type. Pick
+   what is most helpful and phrase it warmly, like a colleague. If `charts_shown`
+   is true, do NOT offer a chart again.
+
+Rules: plain sentences only. No tables, no markdown headings, no bullet lists, no
+invented numbers. Keep each part to 1-2 sentences.
+"""
+
+
+def _narrator_context(
+    question: str,
+    trace: list[dict[str, Any]],
+    agent: Agent,
+    charts_shown: bool,
+) -> dict[str, Any]:
+    fact = _fact_steps(trace)
+    shown = []
+    shown_types: set[str] = set()
+    for e in fact:
+        spec = catalog().get(e["arguments"]["entity"])
+        res = e["result"]
+        noun = _entity_noun(spec)
+        shown_types.add(noun)
+        shown.append({"type": noun, "count": res.get("rowsReturned", 0), "total": res.get("totalValue")})
+
+    payee = None
+    for e in trace:
+        if (e.get("arguments") or {}).get("entity") == "cs_participant":
+            s = e["result"].get("sample") or []
+            if s:
+                payee = f"{s[0].get('FIRSTNAME','')} {s[0].get('LASTNAME','')}".strip() or None
+
+    related = []
+    for name in agent.entities:
+        spec = catalog().get(name)
+        if spec and _is_fact_entity(spec):
+            noun = _entity_noun(spec)
+            if noun not in shown_types and noun not in related:
+                related.append(noun)
+
+    offers = []
+    if not charts_shown:
+        offers.append("visualise this as a bar, pie, or line chart")
+    offers.append("download the full data as CSV")
+    if related:
+        offers.append("explore related records: " + ", ".join(related[:4]))
+
+    return {
+        "question": question,
+        "payee": payee,
+        "shown": shown,
+        "related": related,
+        "offers": offers,
+        "charts_shown": charts_shown,
+    }
+
+
+async def _narrate(
+    agent: Agent, question: str, trace: list[dict[str, Any]], charts_shown: bool = False
+) -> tuple[str, str, int]:
+    """Return (intro, followup, tokens); empty strings on any failure."""
+    try:
+        ctx = _narrator_context(question, trace, agent, charts_shown)
+        resp = await chat_completion(
+            messages=[
+                {"role": "system", "content": _NARRATOR_PROMPT},
+                {"role": "user", "content": json.dumps(ctx, default=str)},
+            ],
+            temperature=0.3,
+            max_tokens=220,
+        )
+        text = (resp.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+        tokens = _usage(resp)
+        if "###FOLLOWUP###" in text:
+            intro, followup = text.split("###FOLLOWUP###", 1)
+            return intro.strip(), followup.strip(), tokens
+        return text, "", tokens
+    except Exception:  # noqa: BLE001 - narration must never break the answer
+        log.exception("narrator failed")
+        return "", "", 0
 
 
 # ---------------------------------------------------------------------------
@@ -829,10 +1378,11 @@ async def run_planner_agent(
     choice = (plan_resp.get("choices") or [{}])[0]
     msg = choice.get("message") or {}
     tool_calls = msg.get("tool_calls") or []
+    tokens = _usage(plan_resp)
 
     # No tool call => the planner answered directly (clarification / chat).
     if not tool_calls:
-        return AgentRunResult(reply=(msg.get("content") or "").strip(), tool_calls=[])
+        return AgentRunResult(reply=(msg.get("content") or "").strip(), tool_calls=[], tokens=tokens)
 
     # Parse the plan from the first run_query_plan call.
     steps: list[dict[str, Any]] = []
@@ -850,6 +1400,7 @@ async def run_planner_agent(
         return AgentRunResult(
             reply="I could not build a valid query plan for that. Please rephrase.",
             tool_calls=[],
+            tokens=tokens,
         )
 
     log.info("planner PLAN=%s", json.dumps(steps, default=str))
@@ -868,9 +1419,18 @@ async def run_planner_agent(
 
     # --- 3. RENDER ---
     # Deterministic table/summary for fact-entity results; the LLM only handles
-    # non-tabular answers (positions, single lookups, chit-chat).
-    reply = _try_deterministic_answer(last_user, trace, enrichment, period_names)
-    if reply is None:
+    # non-tabular answers (positions, single lookups, chit-chat). A narrator adds
+    # a friendly intro + proactive follow-up around the deterministic tables.
+    datasets: list[dict[str, Any]] = []
+    charts: list[dict[str, str]] = []
+    body = _try_deterministic_answer(last_user, trace, enrichment, period_names)
+    if body is not None:
+        datasets = _build_datasets(trace, enrichment, period_names)
+        charts = _build_charts(last_user, trace)
+        intro, followup, ntok = await _narrate(agent, last_user, trace, charts_shown=bool(charts))
+        tokens += ntok
+        reply = "\n\n".join(p for p in [intro, body, followup] if p)
+    else:
         summary_input = {
             "question": last_user,
             "steps": _shape_for_summary(trace),
@@ -886,6 +1446,7 @@ async def run_planner_agent(
             temperature=0.1,
             max_tokens=2500,
         )
+        tokens += _usage(summary_resp)
         summary_msg = (summary_resp.get("choices") or [{}])[0].get("message", {})
         reply = (summary_msg.get("content") or "").strip()
     log.info("planner REPLY(first 400)=%s", reply[:400])
@@ -895,4 +1456,10 @@ async def run_planner_agent(
         {"name": e["name"], "arguments": e["arguments"], "result": e["result"]}
         for e in trace
     ]
-    return AgentRunResult(reply=reply, tool_calls=public_trace)
+    return AgentRunResult(
+        reply=reply,
+        tool_calls=public_trace,
+        datasets=datasets,
+        charts=charts,
+        tokens=tokens,
+    )

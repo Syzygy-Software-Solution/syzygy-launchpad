@@ -80,4 +80,8 @@ async def chat(
         reply=result.reply,
         agent=result.agent,
         tool_calls=[ToolCallTrace(**tc) for tc in result.tool_calls],
+        datasets=result.datasets,
+        charts=result.charts,
+        model=result.model,
+        tokens=result.tokens,
     )

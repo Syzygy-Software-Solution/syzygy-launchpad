@@ -47,7 +47,9 @@ sap.ui.define([
         aiChat: {
           messages: [],
           busy: false,
-          input: ""
+          input: "",
+          model: "gpt-4.1",
+          tokens: 0
         },
         user: {
           name: "John Smith",
