@@ -1,0 +1,362 @@
+# =============================================================================
+# ENTITY CARD — CS_SALESTRANSACTION
+# =============================================================================
+# Sales transaction line items (one per order line). Child of CS_SALESORDER via
+# SALESORDERSEQ. See cs_payment.yaml for the full card-structure explanation.
+#
+# NOTE: card only — not yet added to any agent's `entities`.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_salestransaction
+title: Sales Transactions
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_SALESTRANSACTION/CS_V_SALESTRANSACTION
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management sales transaction line items — one row per line (and
+  sub-line) of a sales order, carrying the product, amounts, and compensation
+  date. Child of cs_salesorder via SALESORDERSEQ. Use it to answer "sales
+  transactions for order X", "transactions for product Y", or amount/date-range
+  questions over sales transactions.
+grain: One row per sales order line (LINENUMBER / SUBLINENUMBER).
+domains: [sales, transactions, sales transactions, orders]
+synonyms: [sales transaction, transaction, order line, sales line]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  SALESTRANSACTIONSEQ:
+    type: bigint
+    role: primary_key
+    label: Sales Transaction ID
+    description: Unique surrogate key of the sales transaction line.
+    synonyms: [sales transaction id, transaction id, transaction key]
+    filterable:
+      - {key: salestransactionseq, op: eq}
+      - {key: salestransactionseq_in, op: in}
+
+  SALESORDERSEQ:
+    type: bigint
+    role: foreign_key
+    label: Sales Order
+    description: The sales order this line belongs to. Joins to cs_salesorder.
+    synonyms: [sales order, order]
+    references:
+      entity: cs_salesorder
+      column: SALESORDERSEQ
+    filterable:
+      - {key: salesorderseq, op: eq}
+      - {key: salesorderseq_in, op: in}
+
+  LINENUMBER:
+    type: integer
+    role: attribute
+    label: Line Number
+    description: Line number within the sales order.
+    synonyms: [line, line number]
+    filterable:
+      - {key: linenumber, op: eq}
+
+  SUBLINENUMBER:
+    type: integer
+    role: attribute
+    label: Sub-Line Number
+    description: Sub-line number within the order line.
+    synonyms: [sub line, sub-line number]
+
+  PRODUCTID:
+    type: string
+    role: attribute
+    label: Product ID
+    description: Product identifier (may be null).
+    synonyms: [product id, product]
+    filterable:
+      - {key: productid, op: eq}
+
+  PRODUCTNAME:
+    type: string
+    role: attribute
+    label: Product Name
+    description: Product name (may be null).
+    synonyms: [product name]
+    filterable:
+      - {key: productname, op: eq}
+
+  PRODUCTDESCRIPTION:
+    type: string
+    role: attribute
+    label: Product Description
+    description: Product description (may be null).
+    synonyms: [product description]
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Transaction Amount
+    description: The transaction amount. No currency — report as a plain number.
+    synonyms: [amount, value, transaction amount]
+    aggregatable: [sum, avg, min, max]
+
+  UNITVALUE:
+    type: decimal
+    role: measure
+    label: Unit Value
+    description: Per-unit value. Plain number.
+    synonyms: [unit value, price per unit]
+    aggregatable: [sum, avg, min, max]
+
+  PREADJUSTEDVALUE:
+    type: decimal
+    role: measure
+    label: Pre-Adjusted Amount
+    description: The amount before adjustments. Plain number.
+    synonyms: [pre-adjusted value]
+    aggregatable: [sum, avg, min, max]
+
+  NUMBEROFUNITS:
+    type: decimal
+    role: measure
+    label: Number of Units
+    description: Quantity of units (may be null).
+    synonyms: [units, quantity, number of units]
+    aggregatable: [sum, avg, min, max]
+
+  NATIVECURRENCY:
+    type: string
+    role: attribute
+    label: Native Currency
+    description: Native currency code (may be null).
+    synonyms: [currency, native currency]
+
+  NATIVECURRENCYAMOUNT:
+    type: decimal
+    role: measure
+    label: Native Currency Amount
+    description: Amount in native currency (may be null). Plain number.
+    synonyms: [native currency amount]
+    aggregatable: [sum, avg, min, max]
+
+  COMPENSATIONDATE:
+    type: datetime
+    role: date
+    label: Compensation Date
+    description: Date used for compensation of this transaction.
+    synonyms: [compensation date, comp date]
+    filterable:
+      - {key: compensationdate_gte, op: ge}
+      - {key: compensationdate_lt, op: lt}
+      - {key: compensationdate_lte, op: le}
+
+  ACCOUNTINGDATE:
+    type: datetime
+    role: date
+    label: Accounting Date
+    description: Accounting date of the transaction.
+    synonyms: [accounting date]
+    filterable:
+      - {key: accountingdate_gte, op: ge}
+      - {key: accountingdate_lt, op: lt}
+      - {key: accountingdate_lte, op: le}
+
+  ORIGINTYPEID:
+    type: string
+    role: attribute
+    label: Origin Type
+    description: How the transaction originated, e.g. "imported", "calculated".
+    synonyms: [origin, origin type]
+    cardinality: low
+    filterable:
+      - {key: origintypeid, op: eq}
+
+  CHANNEL:
+    type: string
+    role: attribute
+    label: Channel
+    description: Sales channel (may be null).
+    synonyms: [channel]
+    filterable:
+      - {key: channel, op: eq}
+
+  PONUMBER:
+    type: string
+    role: attribute
+    label: PO Number
+    description: Purchase order number (may be null).
+    synonyms: [po number, purchase order number]
+    filterable:
+      - {key: ponumber, op: eq}
+
+  COMMENTS:
+    type: string
+    role: attribute
+    label: Comments
+    description: Free-text comments, e.g. "Customer Retention".
+    synonyms: [comments, notes]
+
+  EVENTTYPESEQ:
+    type: bigint
+    role: attribute
+    label: Event Type
+    description: Sequence id of the event type.
+    synonyms: [event type]
+
+  BILLTOADDRESSSEQ:
+    type: bigint
+    role: attribute
+    label: Bill-To Address
+    description: Sequence id of the bill-to address.
+    synonyms: [bill to address]
+
+  SHIPTOADDRESSSEQ:
+    type: bigint
+    role: attribute
+    label: Ship-To Address
+    description: Sequence id of the ship-to address.
+    synonyms: [ship to address]
+
+  OTHERTOADDRESSSEQ:
+    type: bigint
+    role: attribute
+    label: Other-To Address
+    description: Sequence id of the other-to address.
+    synonyms: [other to address]
+
+  DISCOUNTPERCENT:
+    type: decimal
+    role: attribute
+    label: Discount Percent
+    description: Discount percentage (may be null).
+    synonyms: [discount percent, discount]
+
+  DISCOUNTTYPE:
+    type: string
+    role: attribute
+    label: Discount Type
+    description: Discount type (may be null).
+    synonyms: [discount type]
+
+  PAYMENTTERMS:
+    type: string
+    role: attribute
+    label: Payment Terms
+    description: Payment terms (may be null).
+    synonyms: [payment terms]
+
+  ALTERNATEORDERNUMBER:
+    type: string
+    role: attribute
+    label: Alternate Order Number
+    description: Alternate order number (may be null).
+    synonyms: [alternate order number]
+
+  DATASOURCE:
+    type: string
+    role: attribute
+    label: Data Source
+    description: Source of the data (may be null).
+    synonyms: [data source]
+
+  REASONSEQ:
+    type: bigint
+    role: attribute
+    label: Reason
+    description: Sequence id of the reason (may be null).
+    synonyms: [reason]
+
+  ISRUNNABLE:
+    type: integer
+    role: attribute
+    label: Is Runnable
+    description: Whether the transaction is runnable (1/0).
+    synonyms: [runnable, is runnable]
+
+  TENANTID:
+    type: string
+    role: attribute
+    label: Tenant
+    description: Tenant identifier, e.g. "G325".
+    synonyms: [tenant, tenant id]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this record.
+    synonyms: [pipeline run, run id]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+  UNITTYPEFORVALUE:
+    type: bigint
+    role: attribute
+    label: Value Unit Type
+    description: Unit-type sequence id for VALUE.
+    synonyms: [unit type for value]
+
+  UNITTYPEFORUNITVALUE:
+    type: bigint
+    role: attribute
+    label: Unit Value Unit Type
+    description: Unit-type sequence id for UNITVALUE.
+    synonyms: [unit type for unit value]
+
+  UNITTYPEFORPREADJUSTEDVALUE:
+    type: bigint
+    role: attribute
+    label: Pre-Adjusted Value Unit Type
+    description: Unit-type sequence id for PREADJUSTEDVALUE.
+    synonyms: [unit type for pre-adjusted value]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_salesorder
+    via: SALESORDERSEQ
+    remoteColumn: SALESORDERSEQ
+    relationship: many-to-one
+    description: Each sales transaction line belongs to one sales order.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [salestransactionseq, salestransactionseq_in, salesorderseq, salesorderseq_in, productid, productname, ponumber, channel]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - SALESTRANSACTIONSEQ
+    - SALESORDERSEQ
+    - LINENUMBER
+    - PRODUCTID
+    - PRODUCTNAME
+    - VALUE
+    - UNITVALUE
+    - NUMBEROFUNITS
+    - COMPENSATIONDATE
+    - ORIGINTYPEID
+    - COMMENTS
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  ORIGINTYPEID:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

@@ -1,0 +1,342 @@
+# =============================================================================
+# ENTITY CARD — CS_CREDIT
+# =============================================================================
+# Credit records — bridges the credit/incentive cluster (PAYEESEQ, POSITIONSEQ,
+# PERIODSEQ) to the sales cluster (SALESORDERSEQ, SALESTRANSACTIONSEQ). See
+# cs_payment.yaml for the full card-structure explanation.
+#
+# NOTE: card only — not yet added to any agent's `entities`.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_credit
+title: Credits
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_CREDIT/CS_V_CREDIT
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management credit records — a credit (e.g. "Rollup Volume
+  Credit") granted to a payee's position for a compensation period, often traced
+  back to a specific sales order and sales transaction. Bridges credits to sales:
+  use it to answer "credits for payee X", "credits in period Y", "credits for
+  position Z", or "credits from sales order / transaction ...".
+grain: One row per credit (payee x position x period x sales transaction x rule).
+domains: [credits, sales credits, incentives]
+synonyms: [credit, credits, sales credit]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  CREDITSEQ:
+    type: bigint
+    role: primary_key
+    label: Credit ID
+    description: Unique surrogate key of the credit record.
+    synonyms: [credit id, credit sequence, credit key]
+    filterable:
+      - {key: creditseq, op: eq}
+      - {key: creditseq_in, op: in}
+
+  NAME:
+    type: string
+    role: attribute
+    label: Credit Name
+    description: Name of the credit, e.g. "Rollup Volume Credit".
+    synonyms: [credit name, name]
+    cardinality: low
+    filterable:
+      - {key: name, op: eq}
+
+  PAYEESEQ:
+    type: bigint
+    role: foreign_key
+    label: Payee
+    description: The participant the credit is granted to.
+    synonyms: [payee, participant, recipient]
+    references:
+      entity: cs_participant
+      column: PAYEESEQ
+    filterable:
+      - {key: payeeseq, op: eq}
+      - {key: payeeseq_in, op: in}
+
+  POSITIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Position
+    description: The position the credit is granted to. Equals CS_POSITION.RULEELEMENTOWNERSEQ.
+    synonyms: [position, role assignment]
+    references:
+      entity: cs_position
+      column: RULEELEMENTOWNERSEQ
+    filterable:
+      - {key: positionseq, op: eq}
+      - {key: positionseq_in, op: in}
+
+  PERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Period
+    description: The compensation period the credit belongs to.
+    synonyms: [period, pay period, compensation period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: periodseq, op: eq}
+      - {key: periodseq_in, op: in}
+
+  SALESORDERSEQ:
+    type: bigint
+    role: foreign_key
+    label: Sales Order
+    description: The sales order the credit derives from. Joins to cs_salesorder.
+    synonyms: [sales order, order]
+    references:
+      entity: cs_salesorder
+      column: SALESORDERSEQ
+    filterable:
+      - {key: salesorderseq, op: eq}
+      - {key: salesorderseq_in, op: in}
+
+  SALESTRANSACTIONSEQ:
+    type: bigint
+    role: foreign_key
+    label: Sales Transaction
+    description: The sales transaction line the credit derives from. Joins to cs_salestransaction.
+    synonyms: [sales transaction, transaction, order line]
+    references:
+      entity: cs_salestransaction
+      column: SALESTRANSACTIONSEQ
+    filterable:
+      - {key: salestransactionseq, op: eq}
+      - {key: salestransactionseq_in, op: in}
+
+  CREDITTYPESEQ:
+    type: bigint
+    role: attribute
+    label: Credit Type
+    description: Sequence id of the credit type.
+    synonyms: [credit type]
+    filterable:
+      - {key: credittypeseq, op: eq}
+      - {key: credittypeseq_in, op: in}
+
+  VALUE:
+    type: decimal
+    role: measure
+    label: Credit Amount
+    description: The credit amount. No currency — report as a plain number.
+    synonyms: [amount, value, credit amount]
+    aggregatable: [sum, avg, min, max]
+
+  PREADJUSTEDVALUE:
+    type: decimal
+    role: measure
+    label: Pre-Adjusted Amount
+    description: The amount before adjustments. Plain number.
+    synonyms: [pre-adjusted value]
+    aggregatable: [sum, avg, min, max]
+
+  ORIGINTYPEID:
+    type: string
+    role: attribute
+    label: Origin Type
+    description: How the credit originated, e.g. "calculated", "manual".
+    synonyms: [origin, origin type]
+    cardinality: low
+    filterable:
+      - {key: origintypeid, op: eq}
+
+  COMPENSATIONDATE:
+    type: datetime
+    role: date
+    label: Compensation Date
+    description: Date used for compensation of this credit.
+    synonyms: [compensation date, comp date]
+    filterable:
+      - {key: compensationdate_gte, op: ge}
+      - {key: compensationdate_lt, op: lt}
+      - {key: compensationdate_lte, op: le}
+
+  PIPELINERUNDATE:
+    type: datetime
+    role: date
+    label: Pipeline Run Date
+    description: Timestamp of the pipeline run that produced this credit.
+    synonyms: [pipeline run date, run date]
+
+  ROLLDATE:
+    type: datetime
+    role: date
+    label: Roll Date
+    description: Roll date of the credit (may be null).
+    synonyms: [roll date]
+
+  RELEASEDATE:
+    type: datetime
+    role: date
+    label: Release Date
+    description: Release date of the credit (may be null).
+    synonyms: [release date]
+
+  RULESEQ:
+    type: bigint
+    role: attribute
+    label: Rule
+    description: Sequence id of the rule that produced this credit.
+    synonyms: [rule, rule id]
+
+  ISHELD:
+    type: integer
+    role: attribute
+    label: Is Held
+    description: Whether the credit is held (1/0).
+    synonyms: [held, is held]
+
+  ISROLLABLE:
+    type: integer
+    role: attribute
+    label: Is Rollable
+    description: Whether the credit is rollable (1/0).
+    synonyms: [rollable, is rollable]
+
+  REASONSEQ:
+    type: bigint
+    role: attribute
+    label: Reason
+    description: Sequence id of the reason (may be null).
+    synonyms: [reason]
+
+  COMMENTS:
+    type: string
+    role: attribute
+    label: Comments
+    description: Free-text comments (may be null).
+    synonyms: [comments, notes]
+
+  TENANTID:
+    type: string
+    role: attribute
+    label: Tenant
+    description: Tenant identifier, e.g. "G325".
+    synonyms: [tenant, tenant id]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this record.
+    synonyms: [pipeline run, run id]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+  UNITTYPEFORVALUE:
+    type: bigint
+    role: attribute
+    label: Value Unit Type
+    description: Unit-type sequence id for VALUE.
+    synonyms: [unit type for value]
+
+  UNITTYPEFORPREADJUSTEDVALUE:
+    type: bigint
+    role: attribute
+    label: Pre-Adjusted Value Unit Type
+    description: Unit-type sequence id for PREADJUSTEDVALUE.
+    synonyms: [unit type for pre-adjusted value]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_participant
+    via: PAYEESEQ
+    remoteColumn: PAYEESEQ
+    relationship: many-to-one
+    description: Each credit is granted to one participant (payee).
+  - to: cs_position
+    via: POSITIONSEQ
+    remoteColumn: RULEELEMENTOWNERSEQ
+    relationship: many-to-one
+    description: Each credit is granted to one position.
+  - to: cs_period
+    via: PERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: Each credit belongs to one compensation period.
+  - to: cs_salesorder
+    via: SALESORDERSEQ
+    remoteColumn: SALESORDERSEQ
+    relationship: many-to-one
+    description: Each credit may derive from one sales order.
+  - to: cs_salestransaction
+    via: SALESTRANSACTIONSEQ
+    remoteColumn: SALESTRANSACTIONSEQ
+    relationship: many-to-one
+    description: Each credit may derive from one sales transaction line.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [creditseq, creditseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, salesorderseq, salesorderseq_in, salestransactionseq, salestransactionseq_in, name]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - CREDITSEQ
+    - NAME
+    - PAYEESEQ
+    - POSITIONSEQ
+    - PERIODSEQ
+    - SALESORDERSEQ
+    - SALESTRANSACTIONSEQ
+    - VALUE
+    - PREADJUSTEDVALUE
+    - COMPENSATIONDATE
+    - ORIGINTYPEID
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalValue:
+    type: sum
+    column: VALUE
+
+# ---- Enrichment: resolve foreign keys to human-readable labels --------------
+# Deterministic (card-driven). After a credit result, the executor resolves each
+# row's payee name and position title, same as cs_payment / cs_measurement.
+enrichments:
+  - as: payeeName
+    column: PAYEESEQ
+    via: cs_participant
+    match: PAYEESEQ
+    display: [FIRSTNAME, LASTNAME]
+  - as: positionTitle
+    column: POSITIONSEQ
+    via: cs_position
+    match: RULEELEMENTOWNERSEQ
+    then:
+      column: TITLESEQ
+      via: cs_title
+      match: RULEELEMENTOWNERSEQ
+      display: [NAME]
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  NAME:
+    cardinality: low
+    updated: null
+    values: []
+  ORIGINTYPEID:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

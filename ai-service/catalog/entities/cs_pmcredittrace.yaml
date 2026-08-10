@@ -1,0 +1,205 @@
+# =============================================================================
+# ENTITY CARD — CS_PMCREDITTRACE
+# =============================================================================
+# Credit trace: records how a measurement's credit contributes from a source
+# period to a target period (credit rollup / traceability). Links to
+# cs_measurement (MEASUREMENTSEQ) and to cs_period (SOURCEPERIODSEQ /
+# TARGETPERIODSEQ). See cs_payment.yaml for the full card-structure explanation.
+#
+# NOTE: card only — not yet added to any agent's `entities`, so it won't be
+# queried until wired in.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_pmcredittrace
+title: Credit Trace
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_PMCREDITTRACE/CS_V_PMCREDITTRACE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management credit trace records — traces how a measurement's
+  credit contributes from a source compensation period to a target period.
+  Links a measurement (MEASUREMENTSEQ) and a rule to the source/target periods,
+  with the contribution amount. Use it to answer "credit trace for measurement
+  X", or "credits contributing into / out of period Y".
+grain: One row per credit contribution (measurement x rule x source period x target period).
+domains: [credits, credit trace, traceability, rollup]
+synonyms: [credit trace, credit traceability, credit contribution, pm credit trace]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  CREDITSEQ:
+    type: bigint
+    role: foreign_key
+    label: Credit
+    description: The credit this trace row contributes to. Joins to cs_credit.CREDITSEQ.
+    synonyms: [credit id, credit, credit sequence]
+    references:
+      entity: cs_credit
+      column: CREDITSEQ
+    filterable:
+      - {key: creditseq, op: eq}
+      - {key: creditseq_in, op: in}
+
+  MEASUREMENTSEQ:
+    type: bigint
+    role: foreign_key
+    label: Measurement
+    description: The measurement whose credit is being traced.
+    synonyms: [measurement, measurement id]
+    references:
+      entity: cs_measurement
+      column: MEASUREMENTSEQ
+    filterable:
+      - {key: measurementseq, op: eq}
+      - {key: measurementseq_in, op: in}
+
+  SOURCEPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Source Period
+    description: The period the credit originates from. Joins to cs_period.PERIODSEQ.
+    synonyms: [source period, from period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: sourceperiodseq, op: eq}
+      - {key: sourceperiodseq_in, op: in}
+
+  TARGETPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Target Period
+    description: The period the credit contributes into. Joins to cs_period.PERIODSEQ.
+    synonyms: [target period, to period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: targetperiodseq, op: eq}
+      - {key: targetperiodseq_in, op: in}
+
+  RULESEQ:
+    type: bigint
+    role: attribute
+    label: Rule
+    description: Sequence id of the rule that produced this credit contribution.
+    synonyms: [rule, rule id]
+    filterable:
+      - {key: ruleseq, op: eq}
+      - {key: ruleseq_in, op: in}
+
+  SOURCEORIGINTYPEID:
+    type: string
+    role: attribute
+    label: Source Origin Type
+    description: How the source credit originated, e.g. "calculated", "manual".
+    synonyms: [source origin, origin type]
+    cardinality: low
+    filterable:
+      - {key: sourceorigintypeid, op: eq}
+
+  CONTRIBUTIONVALUE:
+    type: decimal
+    role: measure
+    label: Contribution Amount
+    description: The credit contribution amount. No currency — plain number.
+    synonyms: [contribution, contribution value, credit amount]
+    aggregatable: [sum, avg, min, max]
+
+  TENANTID:
+    type: string
+    role: attribute
+    label: Tenant
+    description: Tenant identifier, e.g. "G325".
+    synonyms: [tenant, tenant id]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this record.
+    synonyms: [pipeline run, run id]
+
+  UNITTYPEFORCONTRIBUTIONVALUE:
+    type: bigint
+    role: attribute
+    label: Contribution Unit Type
+    description: Unit-type sequence id for the contribution value.
+    synonyms: [unit type, contribution unit type]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+  PROCESSINGUNITSEQ:
+    type: bigint
+    role: attribute
+    label: Processing Unit
+    description: Sequence id of the processing unit that produced this record.
+    synonyms: [processing unit]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_credit
+    via: CREDITSEQ
+    remoteColumn: CREDITSEQ
+    relationship: many-to-one
+    description: Each credit trace row contributes to one credit.
+  - to: cs_measurement
+    via: MEASUREMENTSEQ
+    remoteColumn: MEASUREMENTSEQ
+    relationship: many-to-one
+    description: Each credit trace refers to one measurement.
+  - to: cs_period
+    via: SOURCEPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the credit originates from.
+  - to: cs_period
+    via: TARGETPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the credit contributes into.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [creditseq, creditseq_in, measurementseq, measurementseq_in, sourceperiodseq, sourceperiodseq_in, targetperiodseq, targetperiodseq_in, ruleseq, ruleseq_in]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - CREDITSEQ
+    - MEASUREMENTSEQ
+    - RULESEQ
+    - SOURCEPERIODSEQ
+    - TARGETPERIODSEQ
+    - SOURCEORIGINTYPEID
+    - CONTRIBUTIONVALUE
+    - PROCESSINGUNITSEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalContribution:
+    type: sum
+    column: CONTRIBUTIONVALUE
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  SOURCEORIGINTYPEID:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

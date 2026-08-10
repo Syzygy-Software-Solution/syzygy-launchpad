@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -215,48 +216,66 @@ call the tool.
 
 
 _SUMMARISER_PROMPT = """\
-You are the ANSWER WRITER. You are given a JSON object with:
+You are the ANSWER WRITER. Input JSON:
 - question:   the user's question.
-- steps:      the executed query plan results (one block per step, in order).
-              Each cs_payment block includes `periods` = the period name(s) it
-              covers.
-- enrichment: deterministic lookup maps you MUST use for display names:
-                payeeName     : PAYEESEQ    -> "First Last"
-                positionTitle : POSITIONSEQ -> position title (from cs_title)
-Write the final reply to the user.
+- steps:      executed query results (one block per step, in order). Each block:
+              entity, filtersApplied, rowsReturned, truncated, sample (array of
+              row objects), optional totalValue / byEarningGroup / byEarningCode /
+              byName, and (payment-style blocks) `periods` = period name(s).
+- enrichment: label maps you MUST use:
+              payeeName     : PAYEESEQ    -> "First Last"
+              positionTitle : POSITIONSEQ -> position title
 
-# Rules
-- Use ONLY values present in the input. Never invent IDs, amounts, or names.
-- Plain prose. No markdown tables, headings, bold, or blockquotes.
-- Name the filter(s) / period(s) applied. For date-range answers, state the
-  period TYPE (monthly / quarterly / yearly).
-- State the row count (rowsReturned) and, when present, the total (totalValue).
-  NEVER add a currency symbol to VALUE.
-- If a payment block's `truncated` is true, say not all rows were counted.
-- Report EACH cs_payment step SEPARATELY, labelled by its `periods`. A block with
-  rowsReturned > 0 HAS data — never say a period returned no rows when its block
-  shows rowsReturned > 0.
+# DEFAULT ANSWER = one summary line + a table of rows
+For ANY question that returned records (payments, deposits, incentives, credits,
+measurements, sales orders/transactions, participants, ...), by default you:
+  1. Write ONE summary line with the REAL numbers filled in.
+  2. Render a Markdown pipe table LISTING the rows from the last data step's
+     `sample` (up to 15 rows). Do NOT wait to be asked to "show" — list by
+     default. Put the total at the end, not instead of the list.
 
-# Listing rows (ONLY if the user asked for "top N", "show N", "a few",
-# "sample", or "list them")
-List that many rows from the block's `sample` as plain bullet lines. For each row
-resolve display names from the enrichment maps:
-  PAYEE    = enrichment.payeeName[PAYEESEQ]      (else "(unknown)")
-  POSITION = enrichment.positionTitle[POSITIONSEQ]  (else "(unknown)")
-Format each line exactly:
-  - PAYMENTSEQ <id>, PAYEE <name> (<PAYEESEQ>), POSITION <title>,
-    EARNINGGROUPID <g>, EARNINGCODEID <c>, VALUE <v>
-If the user did NOT ask to list rows, do NOT list individual rows.
+The chat renders Markdown tables, **bold**, *italic*, `code`, and bullet lists.
+It does NOT render '#' headings — never use them.
 
-# Position-of-a-person questions
-State the person and their position title from the cs_title step's NAME (the
-position is ALWAYS cs_title.NAME, never cs_position.NAME). If the person holds
-multiple positions, use the first. If there is no cs_title step or it returned no
-rows, say the position could not be resolved.
+Summary line (fill from the data — count = rowsReturned, total = totalValue,
+period = `periods`):
+  "**{rowsReturned}** {noun} for **{period or filter}**. Total value: **{totalValue}**."
 
-# Errors / empties
-If a step returned ok:false, explain briefly using its `message`. If a data step
-returned rowsReturned:0, say so plainly for that period only.
+Then a blank line, then the table. Pick 4-7 columns that fit the entity, and
+ALWAYS convert id columns to names:
+  - a "Payee" column from enrichment.payeeName (fall back to the PAYEESEQ number)
+  - a "Position" column from enrichment.positionTitle
+Include the record id and the Value; add the entity's meaningful attributes
+(earning group/code for payments & deposits & credits; NAME for
+measurements/incentives; product for sales transactions). Worked example:
+
+**239 payments** for **February to March 2022** (monthly). Total value: **461,941.37**.
+
+| Payment | Payee | Position | Earning Group | Earning Code | Value |
+|---|---|---|---|---|---|
+| 26177172834093108 | Ian Irving | Account Executive | Commission | MBO | 625.00 |
+| 26177172834093110 | Jane Reed | Sales Manager | Commission | SPIFF | 211.40 |
+
+If `truncated` is true, add one line after the table:
+  "Showing the first {number of rows in sample} of **{rowsReturned}** rows."
+
+# Exceptions (do NOT force a table)
+- If the user asked ONLY for a count ("how many"), reply with the number.
+- If the user asked ONLY for a total, reply with the total.
+- If the user asked for a breakdown ("by earning code/group", "by name"), render a
+  small table from byEarningGroup / byEarningCode / byName: | Category | Count |
+  Amount | and a bold total line.
+- Position-of-a-person question: state the person and their title from the
+  cs_title NAME (NEVER cs_position.NAME); if multiple, use the first.
+
+# Hard rules
+- Fill EVERY figure from the data. NEVER output an empty "****" — if a value is
+  genuinely absent, drop that clause rather than leave it blank.
+- Use ONLY values present in the input; never invent ids, amounts, or names.
+- No currency symbols. Use thousands separators for large numbers.
+- Report EACH data step; a block with rowsReturned > 0 HAS data — never call it
+  empty. Label payment blocks by their `periods`.
+- If a step is ok:false, explain briefly using its `message`.
 """
 
 
@@ -578,6 +597,215 @@ def _shape_for_summary(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Deterministic response rendering (code-driven, not the LLM)
+# ---------------------------------------------------------------------------
+# The answer's STRUCTURE lives here, not in a prompt, so it can't drift when we
+# tweak wording. For any result whose target is a "fact" entity (has a measure
+# column) we build the summary line + Markdown table ourselves. Non-fact answers
+# (positions, single lookups, chat) fall back to the LLM summariser.
+_COUNT_RE = re.compile(r"\bhow many\b|\bcount\b|\bnumber of\b", re.I)
+_BREAKDOWN_RE = re.compile(
+    r"break\s?down|\bby earning (code|group)\b|\bgroup by\b|\bby name\b|\bby group\b|\bby code\b",
+    re.I,
+)
+_MAX_TABLE_ROWS = 15
+
+
+def _fmt_num(value: Any, decimals: int = 2) -> str:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return "" if value is None else str(value)
+    if f == int(f):
+        return f"{int(f):,}"
+    return f"{f:,.{decimals}f}"
+
+
+def _fmt_money(value: Any) -> str:
+    try:
+        return f"{float(value):,.2f}"
+    except (TypeError, ValueError):
+        return "" if value is None else str(value)
+
+
+def _cell(text: Any) -> str:
+    """Sanitise a value for a Markdown table cell."""
+    s = "" if text is None else str(text)
+    return s.replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _is_fact_entity(spec: Any) -> bool:
+    return any(c.role == "measure" for c in spec.columns.values())
+
+
+def _primary_fact_step(trace: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Last ok step whose entity is a fact table (has a measure)."""
+    for entry in reversed(trace):
+        res = entry.get("result") or {}
+        if not res.get("ok"):
+            continue
+        spec = catalog().get((entry.get("arguments") or {}).get("entity") or "")
+        if spec and _is_fact_entity(spec):
+            return entry
+    return None
+
+
+def _enrich_get(enrichment: dict[str, dict[Any, str]], name: str, val: Any) -> str:
+    m = enrichment.get(name) or {}
+    label = m.get(val)
+    if label is None:
+        label = m.get(str(val))
+    return label if label else str(val)
+
+
+def _table_columns(spec: Any, row_keys: set[str]) -> list[tuple[str, str, str]]:
+    """Return (kind, column, header) tuples for the table, capped and ordered."""
+    proj = spec.projection or list(spec.columns)
+    plan: list[tuple[str, str, str]] = []
+
+    pk = next((c.name for c in spec.columns.values() if c.role == "primary_key"), None)
+    if pk and pk in row_keys:
+        plan.append(("id", pk, spec.columns[pk].label or pk))
+    if "PAYEESEQ" in row_keys:
+        plan.append(("payee", "PAYEESEQ", "Payee"))
+    if "POSITIONSEQ" in row_keys:
+        plan.append(("position", "POSITIONSEQ", "Position"))
+    if "PERIODSEQ" in row_keys:
+        plan.append(("period", "PERIODSEQ", "Period"))
+    for name in proj:  # string attributes
+        col = spec.columns.get(name)
+        if col and col.role == "attribute" and col.type == "string" and name in row_keys:
+            plan.append(("attr", name, col.label or name))
+    for name in proj:  # measures
+        col = spec.columns.get(name)
+        if col and col.role == "measure" and name in row_keys:
+            plan.append(("num", name, col.label or name))
+
+    seen: set[str] = set()
+    deduped = [c for c in plan if c[1] not in seen and not seen.add(c[1])]
+    return deduped[:7]
+
+
+def _markdown_table(
+    spec: Any,
+    rows: list[dict[str, Any]],
+    enrichment: dict[str, dict[Any, str]],
+    period_names: dict[Any, str],
+) -> str:
+    row_keys: set[str] = set()
+    for r in rows[:_MAX_TABLE_ROWS]:
+        row_keys.update(r.keys())
+    cols = _table_columns(spec, row_keys)
+    if not cols:
+        return ""
+
+    header = "| " + " | ".join(_cell(h) for _, _, h in cols) + " |"
+    sep = "|" + "|".join("---" for _ in cols) + "|"
+    lines = [header, sep]
+    for r in rows[:_MAX_TABLE_ROWS]:
+        cells = []
+        for kind, name, _ in cols:
+            v = r.get(name)
+            if kind == "payee":
+                cells.append(_cell(_enrich_get(enrichment, "payeeName", v)))
+            elif kind == "position":
+                cells.append(_cell(_enrich_get(enrichment, "positionTitle", v)))
+            elif kind == "period":
+                cells.append(_cell(period_names.get(v) or v))
+            elif kind == "num":
+                cells.append(_cell(_fmt_money(v)))
+            else:
+                cells.append(_cell(v))
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def _breakdown_answer(
+    question: str, res: dict[str, Any], noun: str, period_txt: str
+) -> str | None:
+    q = question.lower()
+    if "group" in q and res.get("byEarningGroup"):
+        agg, label = res["byEarningGroup"], "Earning Group"
+    elif "code" in q and res.get("byEarningCode"):
+        agg, label = res["byEarningCode"], "Earning Code"
+    elif res.get("byName"):
+        agg, label = res["byName"], "Name"
+    elif res.get("byEarningCode"):
+        agg, label = res["byEarningCode"], "Earning Code"
+    elif res.get("byEarningGroup"):
+        agg, label = res["byEarningGroup"], "Earning Group"
+    else:
+        return None
+
+    ordered = sorted(agg.items(), key=lambda kv: -(kv[1].get("amount") or 0))
+    lines = [f"| {label} | Count | Amount |", "|---|---:|---:|"]
+    total = 0.0
+    for key, v in ordered:
+        cnt = v.get("count", 0)
+        amt = v.get("amount", 0) or 0
+        total += amt
+        lines.append(f"| {_cell(key)} | {cnt:,} | {_fmt_money(amt)} |")
+    head = f"Breakdown of {noun}" + (f" for **{period_txt}**" if period_txt else "") + ":"
+    return head + "\n\n" + "\n".join(lines) + f"\n\n**Total: {_fmt_money(total)}**"
+
+
+def _try_deterministic_answer(
+    question: str,
+    trace: list[dict[str, Any]],
+    enrichment: dict[str, dict[Any, str]],
+    period_names: dict[Any, str],
+) -> str | None:
+    """Build the reply for fact-entity results. None => let the LLM answer."""
+    entry = _primary_fact_step(trace)
+    if entry is None:
+        return None
+    res = entry["result"]
+    spec = catalog().get(entry["arguments"]["entity"])
+    if spec is None:
+        return None
+
+    rows = res.get("sample") or []
+    rows_returned = res.get("rowsReturned", len(rows))
+    total = res.get("totalValue")
+    noun = (spec.domains[0] if spec.domains else spec.name.replace("cs_", "")).strip()
+    periods = _distinct(
+        period_names.get(r.get("PERIODSEQ")) for r in rows if period_names.get(r.get("PERIODSEQ"))
+    )
+    period_txt = ", ".join(periods)
+
+    if _COUNT_RE.search(question):
+        s = f"There are **{rows_returned:,}** {noun}"
+        if period_txt:
+            s += f" for **{period_txt}**"
+        if total is not None:
+            s += f", totalling **{_fmt_money(total)}**"
+        return s + "."
+
+    if _BREAKDOWN_RE.search(question):
+        bt = _breakdown_answer(question, res, noun, period_txt)
+        if bt:
+            return bt
+
+    if rows_returned == 0:
+        s = f"No {noun} found"
+        if period_txt:
+            s += f" for **{period_txt}**"
+        return s + "."
+
+    lead = f"**{rows_returned:,}** {noun}"
+    if period_txt:
+        lead += f" for **{period_txt}**"
+    if total is not None:
+        lead += f". Total value: **{_fmt_money(total)}**"
+    lead += "."
+    table = _markdown_table(spec, rows, enrichment, period_names)
+    parts = [lead, "", table] if table else [lead]
+    if res.get("truncated"):
+        parts.append(f"\nShowing the first {min(len(rows), _MAX_TABLE_ROWS)} of {rows_returned:,}+ rows.")
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Public entrypoint
 # ---------------------------------------------------------------------------
 async def run_planner_agent(
@@ -631,29 +859,36 @@ async def run_planner_agent(
 
     # --- 2b. ENRICH (deterministic FK -> label, not the LLM) ---
     enrichment = await _auto_enrich(trace)
+    period_names = _period_name_index(trace)
 
-    # --- 3. SUMMARISE ---
     last_user = next(
         (m["content"] for m in reversed(user_messages) if m.get("role") == "user"),
         "",
     )
-    summary_input = {
-        "question": last_user,
-        "steps": _shape_for_summary(trace),
-        "enrichment": enrichment,
-    }
-    summary_messages = [
-        {"role": "system", "content": _SUMMARISER_PROMPT},
-        {"role": "system", "content": f"Today's date (UTC) is {today_utc}."},
-        {"role": "user", "content": json.dumps(summary_input, default=str)},
-    ]
-    summary_resp = await chat_completion(
-        messages=summary_messages,
-        temperature=0.1,
-        max_tokens=2000,
-    )
-    summary_msg = (summary_resp.get("choices") or [{}])[0].get("message", {})
-    reply = (summary_msg.get("content") or "").strip()
+
+    # --- 3. RENDER ---
+    # Deterministic table/summary for fact-entity results; the LLM only handles
+    # non-tabular answers (positions, single lookups, chit-chat).
+    reply = _try_deterministic_answer(last_user, trace, enrichment, period_names)
+    if reply is None:
+        summary_input = {
+            "question": last_user,
+            "steps": _shape_for_summary(trace),
+            "enrichment": enrichment,
+        }
+        summary_messages = [
+            {"role": "system", "content": _SUMMARISER_PROMPT},
+            {"role": "system", "content": f"Today's date (UTC) is {today_utc}."},
+            {"role": "user", "content": json.dumps(summary_input, default=str)},
+        ]
+        summary_resp = await chat_completion(
+            messages=summary_messages,
+            temperature=0.1,
+            max_tokens=2500,
+        )
+        summary_msg = (summary_resp.get("choices") or [{}])[0].get("message", {})
+        reply = (summary_msg.get("content") or "").strip()
+    log.info("planner REPLY(first 400)=%s", reply[:400])
 
     # Expose a clean tool trace (drop the internal 'step'/'extracts' noise).
     public_trace = [

@@ -420,7 +420,8 @@ sap.ui.define([
       s = s.replace(/<p>\s*(<(?:pre|table|ul)[\s\S]*?<\/(?:pre|table|ul)>)\s*<\/p>/g, "$1");
       s = s.replace(/<p>\s*<\/p>/g, "");
 
-      return s;
+      // Single root element so sap.ui.core.HTML renders it cleanly.
+      return '<div class="szAiMd">' + s + "</div>";
     },
 
     onOpenNotifications: async function (oEvent) {

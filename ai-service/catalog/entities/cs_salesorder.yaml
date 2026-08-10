@@ -1,0 +1,99 @@
+# =============================================================================
+# ENTITY CARD — CS_SALESORDER
+# =============================================================================
+# A sales order header. Parent of CS_SALESTRANSACTION (line items) via
+# SALESORDERSEQ. See cs_payment.yaml for the full card-structure explanation.
+#
+# NOTE: card only — not yet added to any agent's `entities`.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_salesorder
+title: Sales Orders
+version: 1
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_SALESORDER/CS_V_SALESORDER
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management sales order headers. One row per sales order,
+  identified by a human-readable ORDERID (e.g. "USDMBO-1"). Parent of the
+  sales transaction line items (cs_salestransaction) via SALESORDERSEQ. Use it
+  to resolve an ORDERID to its transactions, or to answer "sales order X".
+grain: One row per sales order.
+domains: [sales, orders, sales orders]
+synonyms: [sales order, order, order header]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  SALESORDERSEQ:
+    type: bigint
+    role: primary_key
+    label: Sales Order ID
+    description: Unique surrogate key of the sales order. Join key to cs_salestransaction.
+    synonyms: [sales order id, sales order sequence, order key]
+    filterable:
+      - {key: salesorderseq, op: eq}
+      - {key: salesorderseq_in, op: in}
+
+  ORDERID:
+    type: string
+    role: attribute
+    label: Order ID
+    description: Human-readable order identifier, e.g. "USDMBO-1".
+    synonyms: [order id, order number, order]
+    filterable:
+      - {key: orderid, op: eq}
+
+  TENANTID:
+    type: string
+    role: attribute
+    label: Tenant
+    description: Tenant identifier, e.g. "G325".
+    synonyms: [tenant, tenant id]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: Sequence id of the pipeline run that produced this record.
+    synonyms: [pipeline run, run id]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_salestransaction
+    via: SALESORDERSEQ
+    remoteColumn: SALESORDERSEQ
+    relationship: one-to-many
+    description: A sales order has many sales transaction line items.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [salesorderseq, salesorderseq_in, orderid]
+  defaultTop: 200
+  maxTop: 1000
+  projection:
+    - SALESORDERSEQ
+    - ORDERID
+    - TENANTID
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations: {}
+
+# ---- Value hints ------------------------------------------------------------
+valueSets: {}
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows: []

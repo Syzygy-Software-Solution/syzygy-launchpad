@@ -1495,7 +1495,7 @@
                 <CustomListItem class="szAiMsgItem">
                   <FlexBox direction="Row" justifyContent="{= ${ui>role} === 'user' ? 'End' : 'Start' }" wrap="NoWrap">
                     <VBox class="{= ${ui>role} === 'user' ? 'szAiMsgBubble szAiMsgUser' : (${ui>error} ? 'szAiMsgBubble szAiMsgError' : 'szAiMsgBubble szAiMsgAssistant') }">
-                      <FormattedText htmlText="{ui>contentHtml}"/>
+                      <core:HTML content="{ui>contentHtml}" sanitizeContent="false"/>
                     </VBox>
                   </FlexBox>
                 </CustomListItem>
