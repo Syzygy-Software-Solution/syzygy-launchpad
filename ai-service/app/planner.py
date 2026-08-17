@@ -538,10 +538,14 @@ async def _execute_plan(
     trace: list[dict[str, Any]] = []
     allowed = set(agent.entities or list(catalog()))
 
-    for step in steps[:MAX_PLAN_STEPS]:
+    planned = steps[:MAX_PLAN_STEPS]
+    for idx, step in enumerate(planned):
         step_id = step.get("id") or f"s{len(trace) + 1}"
         entity = step.get("entity") or ""
         raw_filters = step.get("filters") or {}
+        # A step whose keys feed a later step must not truncate: dropping rows
+        # there silently narrows everything downstream.
+        feeds_forward = idx < len(planned) - 1
 
         if entity not in allowed:
             result = {
@@ -572,18 +576,46 @@ async def _execute_plan(
         spec = catalog().get(entity)
         extract_cols = list(spec.projection) if (spec and spec.projection) else None
         group_by = step.get("group_by")
-        # Group-by aggregation should cover as many rows as possible.
-        default_top = 1000 if group_by else 200
+        # Row cap, in priority order:
+        #   1. an explicit `top` from the plan (top-N questions)
+        #   2. the card's maxTop when the step aggregates over everything or
+        #      feeds a later step — both need complete data to be correct
+        #   3. the card's defaultTop for a final display step
+        # Caps now come from the card (query.defaultTop / query.maxTop) rather
+        # than the hardcoded 200/1000 they used to be.
+        if step.get("top"):
+            step_top = int(step["top"])
+        elif group_by or feeds_forward:
+            step_top = spec.max_top if spec else 1000
+        else:
+            step_top = spec.default_top if spec else 200
         result = await query_entity(
             entity=entity,
             filters=resolved_filters,
-            top=int(step["top"]) if step.get("top") else default_top,
+            top=step_top,
             orderby=step.get("orderby"),
             extract_columns=extract_cols,
             group_by=group_by,
             aggregate=step.get("aggregate"),
             aggregate_column=step.get("aggregate_column"),
         )
+        # An explicit `top` in the plan is a DELIBERATE limit — "the first
+        # payment", "top 5 by value". Filling it is the intended outcome, not
+        # truncation, so it must not raise a partial-results warning.
+        if result.get("ok") and step.get("top"):
+            result["truncated"] = False
+
+        # A truncated step that feeds a later one carried an INCOMPLETE key set
+        # forward, so everything downstream is a subset of the true answer.
+        # Flag it loudly rather than letting it pass as a complete result.
+        if result.get("ok") and result.get("truncated") and feeds_forward:
+            result["feedTruncated"] = True
+            log.warning(
+                "planner step=%s entity=%s TRUNCATED at %s rows while feeding "
+                "later steps — downstream results are incomplete",
+                step_id, entity, result.get("rowsCapAt"),
+            )
+
         # Resolve group keys to human labels via the entity's enrichment rule.
         if result.get("ok") and result.get("groups") and group_by:
             try:
@@ -656,7 +688,10 @@ async def _resolve_lookup(
     if not key:
         return {}
     res = await query_entity(entity=via, filters={key: list(source_values)}, top=1000)
-    rows = res.get("sample") or []
+    # `rows` (up to 1000), not `sample` (50): a label map built from the sample
+    # left every row past the 50th showing a raw surrogate key, in the table AND
+    # in the CSV. Chunking in query_entity makes the wide `in` list safe.
+    rows = res.get("rows") or res.get("sample") or []
 
     if not then:
         out: dict[Any, str] = {}
@@ -728,7 +763,8 @@ async def _auto_enrich(trace: list[dict[str, Any]]) -> dict[str, dict[Any, str]]
         spec = catalog().get(entity or "")
         if not spec or not spec.enrichments:
             continue
-        sample = res.get("sample") or []
+        # Enrich over every displayed row, not just the first 50.
+        sample = res.get("rows") or res.get("sample") or []
         if not sample:
             continue
         for rule in spec.enrichments:
@@ -755,7 +791,8 @@ def _period_name_index(trace: list[dict[str, Any]]) -> dict[Any, str]:
     for entry in trace:
         if (entry.get("arguments") or {}).get("entity") != "cs_period":
             continue
-        for r in (entry.get("result") or {}).get("sample") or []:
+        res = entry.get("result") or {}
+        for r in res.get("rows") or res.get("sample") or []:
             if r.get("PERIODSEQ") is not None:
                 idx[r["PERIODSEQ"]] = r.get("NAME")
     return idx
@@ -855,14 +892,23 @@ def _cell(text: Any) -> str:
     return s.replace("|", "\\|").replace("\n", " ").strip()
 
 
+def _has_measure(spec: Any) -> bool:
+    return any(c.role == "measure" for c in spec.columns.values())
+
+
+def _is_trace_entity(spec: Any) -> bool:
+    return getattr(spec, "kind", "fact") == "trace"
+
+
 def _is_fact_entity(spec: Any) -> bool:
     # Trace cards carry a CONTRIBUTIONVALUE measure but are pure lineage
     # plumbing — rendering them would show the user a table of surrogate keys.
     # They are traversed for their keys; the stage entities either side of them
-    # are what gets reported.
-    if getattr(spec, "kind", "fact") == "trace":
+    # are what gets reported. (A trace that is the FINAL step is the answer
+    # itself — see _fact_steps.)
+    if _is_trace_entity(spec):
         return False
-    return any(c.role == "measure" for c in spec.columns.values())
+    return _has_measure(spec)
 
 
 def _primary_fact_step(trace: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -994,14 +1040,21 @@ def _entity_noun(spec: Any) -> str:
 
 
 def _fact_steps(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """All ok steps whose entity is a fact table, in execution order."""
+    """All ok steps whose entity is reportable, in execution order.
+
+    A trace entity counts only when it is the LAST step — that means the user
+    asked about the trace itself ("show the credit trace for measurement X")
+    rather than passing through it on the way to sales transactions.
+    """
+    ok_steps = [e for e in trace if (e.get("result") or {}).get("ok")]
     out: list[dict[str, Any]] = []
-    for entry in trace:
-        res = entry.get("result") or {}
-        if not res.get("ok"):
-            continue
+    for i, entry in enumerate(ok_steps):
         spec = catalog().get((entry.get("arguments") or {}).get("entity") or "")
-        if spec and _is_fact_entity(spec):
+        if not spec:
+            continue
+        if _is_fact_entity(spec):
+            out.append(entry)
+        elif _is_trace_entity(spec) and _has_measure(spec) and i == len(ok_steps) - 1:
             out.append(entry)
     return out
 
@@ -1045,6 +1098,13 @@ def _fact_table_block(
     shown = min(len(rows), max_rows)
     if rr > shown:
         parts.append(f"\nShowing {shown} of {rr:,} rows — use the download button below for all rows.")
+    # Distinct from the line above: there were MORE rows at the source than we
+    # fetched, so any total shown covers only what was retrieved.
+    if res.get("truncated"):
+        parts.append(
+            f"\n_Capped at {res.get('rowsCapAt', rr):,} rows — more exist upstream, "
+            f"so the total above covers only the rows fetched._"
+        )
     return "\n".join(parts)
 
 
@@ -1066,12 +1126,20 @@ def _single_fact_answer(
     )
 
     if _COUNT_RE.search(question):
-        s = f"There are **{rr:,}** {noun}"
+        # "at least" rather than an exact figure when the source had more rows
+        # than we fetched — a capped count stated flatly is just wrong.
+        s = f"There are **at least {rr:,}** {noun}" if res.get("truncated") else f"There are **{rr:,}** {noun}"
         if period_txt:
             s += f" for **{period_txt}**"
         if total is not None:
             s += f", totalling **{_fmt_money(total)}**"
-        return s + "."
+        s += "."
+        if res.get("truncated"):
+            s += (
+                f" This is capped at {res.get('rowsCapAt', rr):,} rows — more exist "
+                f"upstream, so treat both figures as a lower bound."
+            )
+        return s
 
     if _BREAKDOWN_RE.search(question):
         bt = _breakdown_answer(question, res, noun, period_txt)
@@ -1155,12 +1223,23 @@ def _try_deterministic_answer(
 
     max_rows = _MAX_SHOWALL_ROWS if _SHOWALL_RE.search(question) else _MAX_TABLE_ROWS
     if len(fact_steps) == 1:
-        return _single_fact_answer(question, fact_steps[0], enrichment, period_names, max_rows)
-    sections = [
-        _fact_table_block(e, enrichment, period_names, header=True, max_rows=max_rows)
-        for e in fact_steps
-    ]
-    return "\n\n".join(sections)
+        body = _single_fact_answer(question, fact_steps[0], enrichment, period_names, max_rows)
+    else:
+        body = "\n\n".join(
+            _fact_table_block(e, enrichment, period_names, header=True, max_rows=max_rows)
+            for e in fact_steps
+        )
+
+    # An intermediate step that truncated fed an incomplete key set forward, so
+    # every later step is a subset of the true answer. That has to be stated —
+    # the rows shown look perfectly normal.
+    if any((e.get("result") or {}).get("feedTruncated") for e in trace):
+        body += (
+            "\n\n_Note: an intermediate step hit its row cap, so these results "
+            "are partial — narrow the question (a shorter period, a specific "
+            "payee) for a complete answer._"
+        )
+    return body
 
 
 # ---------------------------------------------------------------------------
@@ -1255,7 +1334,17 @@ def _build_charts(question: str, trace: list[dict[str, Any]]) -> list[dict[str, 
     q = question.lower()
     ctype = "pie" if "pie" in q else ("line" if "line" in q else "bar")
     charts: list[dict[str, str]] = []
-    for entry in _fact_steps(trace):
+    # Chart the ranked groups when the question was analytical; otherwise chart
+    # only the PRIMARY fact step. A lineage chain has several fact steps and
+    # charting all of them buries the one the user actually asked about.
+    steps = _fact_steps(trace)
+    grouped = [e for e in steps if e["result"].get("groups")]
+    if grouped:
+        targets = grouped
+    else:
+        primary = _primary_fact_step(trace)
+        targets = [primary] if primary else []
+    for entry in targets:
         res = entry["result"]
         spec = catalog().get(entry["arguments"]["entity"])
 
@@ -1388,6 +1477,11 @@ shown to the user as tables (you cannot see the tables). Input JSON:
 - payee:    the person the data is about (may be null).
 - shown:    record types already displayed, each {type, count, total}.
 - related:  OTHER record types available to explore that were NOT shown.
+- lineage:  true when the records were reached by TRACING the calculation chain
+            (payment -> deposit -> incentive -> measurement -> credit -> sales
+            transaction), false when they were fetched independently.
+- chain:    the stages traversed, in order (only when lineage is true).
+- incomplete: true when a step hit its row cap, so the results are partial.
 
 Write EXACTLY two parts separated by a line containing only "###FOLLOWUP###":
 1) INTRO: one or two friendly, natural sentences introducing the results —
@@ -1398,6 +1492,18 @@ Write EXACTLY two parts separated by a line containing only "###FOLLOWUP###":
    downloading the full data as CSV, or exploring a related record type. Pick
    what is most helpful and phrase it warmly, like a colleague. If `charts_shown`
    is true, do NOT offer a chart again.
+
+# Lineage vs. unrelated results — get this right
+If `lineage` is TRUE, these records are the TRACED ORIGIN of one another: say so
+plainly, e.g. "this payment traces back through N credits to N sales
+transactions". Follow the `chain` order when describing it.
+If `lineage` is FALSE, the record types were fetched SEPARATELY. Never imply one
+came from another, and never write "from the same period", "related to this
+payment", or "behind this payment" — describe them as separate result sets.
+Never claim records are connected because they share a payee or a period.
+
+If `incomplete` is true, add a brief, honest clause that the results are capped
+and may not be the full picture. Do not bury it.
 
 Rules: plain sentences only. No tables, no markdown headings, no bullet lists, no
 invented numbers. Keep each part to 1-2 sentences.
@@ -1442,6 +1548,17 @@ def _narrator_context(
     if related:
         offers.append("explore related records: " + ", ".join(related[:4]))
 
+    # Did the plan actually WALK the lineage chain, or just fetch several
+    # entities that happen to share a payee/period? Without this the narrator
+    # cannot tell the two apart and describes a fan-out as if it were lineage.
+    lineage = any(
+        _is_trace_entity(catalog().get((e.get("arguments") or {}).get("entity") or ""))
+        for e in trace
+        if (e.get("result") or {}).get("ok")
+        and catalog().get((e.get("arguments") or {}).get("entity") or "")
+    )
+    incomplete = any((e.get("result") or {}).get("feedTruncated") for e in trace)
+
     return {
         "question": question,
         "payee": payee,
@@ -1449,6 +1566,9 @@ def _narrator_context(
         "related": related,
         "offers": offers,
         "charts_shown": charts_shown,
+        "lineage": lineage,
+        "chain": [s["type"] for s in shown] if lineage else [],
+        "incomplete": incomplete,
     }
 
 

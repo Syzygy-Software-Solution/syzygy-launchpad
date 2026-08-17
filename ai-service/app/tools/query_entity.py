@@ -16,6 +16,7 @@ The handler:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import quote
@@ -192,6 +193,253 @@ def _aggregate(
 
 
 # ---------------------------------------------------------------------------
+# Fetch: $select, request batching, and paging
+# ---------------------------------------------------------------------------
+# Three independent limits, deliberately NOT conflated:
+#   _MAX_URL_CHARS - transport limit. Datasphere rejects URLs past roughly 8 KB
+#                    (measured: 200 bigint values in an OR chain = 9,520 chars).
+#                    Oversized `in` lists are split across requests.
+#   _PAGE_SIZE     - rows per HTTP request. Paging walks toward the caller's
+#                    `top` so a card may ask for more than one page.
+#   `top`          - how many rows the caller wants. Costs payload and latency,
+#                    NOT tokens: rows reach the LLM only via the 50-row `sample`.
+_MAX_URL_CHARS = 6000
+_PAGE_SIZE = 1000
+# Concurrent in-flight requests when a filter is split into batches.
+_MAX_CONCURRENCY = 5
+
+
+def _select_columns(spec: EntitySpec) -> list[str]:
+    """Columns the request must ask for: projection + anything code reads later.
+
+    Without `$select` every column crosses the wire and is then thrown away by
+    the projection step. Narrowing it is a large payload win on wide tables, but
+    only if we keep the columns that dedupe, enrichment and joins depend on —
+    hence the union rather than the projection alone.
+    """
+    if not spec.projection:
+        return []  # no projection declared -> fetch everything, as before
+    cols = list(spec.projection)
+    seen = set(cols)
+    extra: list[str] = []
+    if spec.dedupe_by:
+        extra.append(spec.dedupe_by)
+    for rule in spec.enrichments or []:
+        if rule.get("column"):
+            extra.append(rule["column"])
+    extra.extend(j.via for j in spec.joins)
+    for c in extra:
+        if c and c in spec.columns and c not in seen:
+            seen.add(c)
+            cols.append(c)
+    return cols
+
+
+def _split_in_filters(
+    spec: EntitySpec, filters: dict[str, Any], budget: int
+) -> list[dict[str, Any]]:
+    """Split `filters` into request-sized batches.
+
+    Returns `[filters]` unchanged whenever the rendered filter already fits, so
+    every query that works today takes the exact same single-request path.
+
+    Only the LARGEST `in` filter is split: chunking two of them at once would
+    produce a cross-product of requests rather than a partition of the result
+    set, which would both duplicate rows and change the meaning of the query.
+    """
+    # Measure the ENCODED length: quote() turns each space into %20 and each
+    # paren into %28/%29, so a raw filter string understates the real URL cost
+    # by roughly a third.
+    def enc_len(f: dict[str, Any]) -> int:
+        return len(quote(_build_filter(spec, f), safe=""))
+
+    try:
+        if enc_len(filters) <= budget:
+            return [filters]
+    except ValueError:
+        return [filters]  # let the caller surface the real validation error
+
+    candidates = [
+        (k, list(v))
+        for k, v in filters.items()
+        if isinstance(v, (list, tuple))
+        and len(v) > 1
+        and (spec.filters.get(k).op if spec.filters.get(k) else None) == "in"
+    ]
+    if not candidates:
+        return [filters]  # too long but nothing splittable; upstream will error
+
+    key, values = max(candidates, key=lambda kv: len(kv[1]))
+    values = list(dict.fromkeys(values))  # dedupe, preserve order
+    others = {k: v for k, v in filters.items() if k != key}
+
+    try:
+        base = enc_len(others) if others else 0
+        per = max(enc_len({key: values[:1]}), 1)
+    except ValueError:
+        return [filters]
+
+    size = max(1, (budget - base - 32) // per)
+    # `per` measures the first value, which carries the enclosing parens, so the
+    # estimate runs slightly optimistic. Shrink proportionally to the overshoot
+    # (with a little headroom) rather than halving, which would waste roughly a
+    # third of each request's capacity and double the round trips.
+    for _ in range(8):
+        if size <= 1:
+            break
+        probe = dict(others)
+        probe[key] = values[:size]
+        try:
+            actual = enc_len(probe)
+        except ValueError:
+            break
+        if actual <= budget:
+            break
+        size = max(1, int(size * (budget / actual) * 0.95))
+
+    batches: list[dict[str, Any]] = []
+    for i in range(0, len(values), size):
+        b = dict(others)
+        b[key] = values[i : i + size]
+        batches.append(b)
+    log.info(
+        "query_entity[%s] → splitting '%s' (%d values) into %d requests",
+        spec.name, key, len(values), len(batches),
+    )
+    return batches
+
+
+def _sort_records(records: list[dict[str, Any]], orderby: str) -> list[dict[str, Any]]:
+    """Re-apply $orderby after merging batches.
+
+    Each request sorts only its own slice, so a merged result is unordered.
+    Nulls are kept last in both directions.
+    """
+    parts = orderby.replace(",", " ").split()
+    if not parts:
+        return records
+    col = parts[0]
+    desc = len(parts) > 1 and parts[1].lower() == "desc"
+    non_null = [r for r in records if r.get(col) is not None]
+    nulls = [r for r in records if r.get(col) is None]
+    try:
+        non_null.sort(key=lambda r: r.get(col), reverse=desc)
+    except TypeError:
+        return records  # mixed types — leave upstream order alone
+    return non_null + nulls
+
+
+def _build_url(
+    base: str,
+    spec: EntitySpec,
+    filter_str: str,
+    top: int,
+    orderby: str | None,
+    select: list[str],
+    skip: int,
+) -> str:
+    url = (
+        f"{base}{spec.endpoint}"
+        f"?$filter={quote(filter_str, safe='')}&$top={top}"
+    )
+    if select:
+        url += f"&$select={quote(','.join(select), safe=',')}"
+    if orderby:
+        # Trust the LLM-supplied clause (column names come from the
+        # catalog/projection it can see). quote() leaves spaces as
+        # %20 which OData accepts.
+        url += f"&$orderby={quote(orderby, safe=',')}"
+    if skip:
+        url += f"&$skip={skip}"
+    return url
+
+
+async def _fetch_one(
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str],
+    entity: str,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """One GET. Returns (records, error_result); exactly one is non-None."""
+    log.info("query_entity[%s] → GET %s", entity, url)
+    resp = await client.get(url, headers=headers)
+    content_type = resp.headers.get("content-type", "")
+    log.info(
+        "query_entity[%s] ← status=%s content-type=%s bytes=%d",
+        entity, resp.status_code, content_type, len(resp.content),
+    )
+
+    if resp.status_code >= 400:
+        log.error(
+            "TCMP call failed entity=%s status=%s body=%s",
+            entity, resp.status_code, resp.text[:500],
+        )
+        return None, {
+            "ok": False,
+            "error": "upstream_http_error",
+            "status": resp.status_code,
+            "message": resp.text[:500],
+        }
+
+    try:
+        body = resp.json()
+    except ValueError:
+        snippet = resp.text[:500] if resp.text else "<empty body>"
+        log.error(
+            "TCMP returned non-JSON entity=%s content-type=%s body=%s",
+            entity, content_type, snippet,
+        )
+        return None, {
+            "ok": False,
+            "error": "upstream_non_json",
+            "status": resp.status_code,
+            "contentType": content_type,
+            "message": (
+                "Upstream returned a non-JSON response (often an HTML "
+                "login page or an XML OData v2 payload). Body preview: "
+                + snippet
+            ),
+        }
+
+    return (body.get("value") or []), None
+
+
+async def _fetch_batch(
+    client: httpx.AsyncClient,
+    spec: EntitySpec,
+    base: str,
+    headers: dict[str, str],
+    filter_str: str,
+    top: int,
+    orderby: str | None,
+    select: list[str],
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None, bool]:
+    """Fetch up to `top` rows for one filter string, paging as needed.
+
+    Returns (records, error, hit_cap). `hit_cap` is True when the source still
+    had rows at `top` — the signal the planner needs to know a chained step was
+    truncated rather than complete.
+    """
+    records: list[dict[str, Any]] = []
+    skip = 0
+    while len(records) < top:
+        want = min(_PAGE_SIZE, top - len(records))
+        # Ask for ONE MORE row than we need. Without that probe, a result that
+        # exactly fills the cap is indistinguishable from one that was cut
+        # short, and every exactly-full result reports itself as truncated.
+        url = _build_url(base, spec, filter_str, want + 1, orderby, select, skip)
+        page, err = await _fetch_one(client, url, headers, spec.name)
+        if err is not None:
+            return None, err, False
+        if len(page) <= want:
+            records.extend(page)
+            return records, None, False  # source exhausted
+        records.extend(page[:want])      # the probe row proves more remain
+        skip += want
+    return records, None, True
+
+
+# ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
 
@@ -247,73 +495,70 @@ async def query_entity(
                 ),
             }
 
-    top = max(1, min(int(top or 200), 1000))
-
-    try:
-        filter_str = _build_filter(spec, filters)
-    except ValueError as e:
-        return {"ok": False, "error": "bad_filter", "message": str(e)}
+    # Row cap comes from the entity card, not a hardcoded constant: a trace
+    # table that must feed a later step needs a far higher ceiling than a
+    # listing the user will read.
+    top = max(1, min(int(top or spec.default_top), spec.max_top))
 
     settings = get_settings()
     dest = await destinations().get(settings.tcmp_destination)
     base = f"{dest.url}{settings.tcmp_base_path}".rstrip("/")
-    url = (
-        f"{base}{spec.endpoint}"
-        f"?$filter={quote(filter_str, safe='')}&$top={top}"
-    )
-    if orderby:
-        # Trust the LLM-supplied clause (column names come from the
-        # catalog/projection it can see). quote() leaves spaces as
-        # %20 which OData accepts.
-        url += f"&$orderby={quote(orderby, safe=',')}"
-        log.info("query_entity[%s] → orderby=%s", entity, orderby)
-
     headers = {"Accept": "application/json", **dest.headers}
-    log.info("query_entity[%s] → GET %s", entity, url)
-    log.info("query_entity[%s] → filter=%s", entity, filter_str)
+    select = _select_columns(spec)
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.get(url, headers=headers)
-
-    content_type = resp.headers.get("content-type", "")
-    log.info(
-        "query_entity[%s] ← status=%s content-type=%s bytes=%d",
-        entity, resp.status_code, content_type, len(resp.content),
+    # Budget for the encoded $filter: the URL ceiling less the fixed prefix and
+    # the other query options.
+    fixed = (
+        len(base) + len(spec.endpoint) + len(",".join(select))
+        + len(orderby or "") + 96
     )
-
-    if resp.status_code >= 400:
-        log.error(
-            "TCMP call failed entity=%s status=%s body=%s",
-            entity, resp.status_code, resp.text[:500],
-        )
-        return {
-            "ok": False,
-            "error": "upstream_http_error",
-            "status": resp.status_code,
-            "message": resp.text[:500],
-        }
+    batches = _split_in_filters(spec, filters, max(_MAX_URL_CHARS - fixed, 512))
 
     try:
-        body = resp.json()
-    except ValueError:
-        snippet = resp.text[:500] if resp.text else "<empty body>"
-        log.error(
-            "TCMP returned non-JSON entity=%s content-type=%s body=%s",
-            entity, content_type, snippet,
-        )
-        return {
-            "ok": False,
-            "error": "upstream_non_json",
-            "status": resp.status_code,
-            "contentType": content_type,
-            "message": (
-                "Upstream returned a non-JSON response (often an HTML "
-                "login page or an XML OData v2 payload). Body preview: "
-                + snippet
-            ),
-        }
+        filter_strs = [_build_filter(spec, b) for b in batches]
+    except ValueError as e:
+        return {"ok": False, "error": "bad_filter", "message": str(e)}
 
-    records: list[dict[str, Any]] = body.get("value") or []
+    log.info("query_entity[%s] → filter=%s", entity, filter_strs[0])
+    if orderby:
+        log.info("query_entity[%s] → orderby=%s", entity, orderby)
+
+    records: list[dict[str, Any]] = []
+    hit_cap = False
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        if len(filter_strs) == 1:
+            # Single-request path — byte-identical in behaviour to before
+            # batching existed, so nothing that works today can change.
+            recs, err, hit_cap = await _fetch_batch(
+                client, spec, base, headers, filter_strs[0], top, orderby, select
+            )
+            if err is not None:
+                return err
+            records = recs or []
+        else:
+            sem = asyncio.Semaphore(_MAX_CONCURRENCY)
+
+            async def run(fs: str):
+                async with sem:
+                    return await _fetch_batch(
+                        client, spec, base, headers, fs, top, orderby, select
+                    )
+
+            for recs, err, cap in await asyncio.gather(
+                *(run(fs) for fs in filter_strs)
+            ):
+                if err is not None:
+                    return err
+                records.extend(recs or [])
+                hit_cap = hit_cap or cap
+
+            # Each batch sorted only its own slice, and `top` applies to the
+            # whole result rather than to each request.
+            if orderby:
+                records = _sort_records(records, orderby)
+            if len(records) > top:
+                records = records[:top]
+                hit_cap = True
 
     # Optional per-entity dedup. Time-versioned tables like CS_PARTICIPANT
     # return many rows per logical key (one per effective-dated version).
@@ -345,7 +590,10 @@ async def query_entity(
         "filtersApplied": {k: v for k, v in filters.items() if v not in (None, "")},
         "rowsReturned": len(records),
         "rowsCapAt": top,
-        "truncated": len(records) >= top,
+        # True only when the SOURCE still had rows at the cap — not merely when
+        # the count happens to equal it. The planner relies on this to know a
+        # chained step carried a partial key set forward.
+        "truncated": hit_cap,
         "sample": sample,
         "rows": display_rows,
     }
