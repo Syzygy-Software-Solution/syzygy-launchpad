@@ -1482,6 +1482,9 @@ shown to the user as tables (you cannot see the tables). Input JSON:
             transaction), false when they were fetched independently.
 - chain:    the stages traversed, in order (only when lineage is true).
 - incomplete: true when a step hit its row cap, so the results are partial.
+- empty:    true when NOTHING was found (every count is 0).
+- failed:   steps that could not run, each {entity, message}. Empty when the
+            whole plan succeeded.
 
 Write EXACTLY two parts separated by a line containing only "###FOLLOWUP###":
 1) INTRO: one or two friendly, natural sentences introducing the results —
@@ -1493,7 +1496,19 @@ Write EXACTLY two parts separated by a line containing only "###FOLLOWUP###":
    what is most helpful and phrase it warmly, like a colleague. If `charts_shown`
    is true, do NOT offer a chart again.
 
+# Nothing found, or the plan broke — check these FIRST
+If `empty` is true, NOTHING was found. Say that directly ("I could not find any
+X for Y"). NEVER write "here are the records", "giving you a look at", or any
+phrasing that implies data is displayed — there is no data.
+If `failed` is non-empty, the plan did NOT complete. Say which part could not be
+answered and why, in plain language (e.g. "I found no sales transactions for
+that product, so I could not trace it to a payment"). In this case do NOT say
+the results are "shown independently" or "not traced" as if that were a choice —
+the trace was attempted and could not finish. Suggest a more specific anchor
+(an id, a name, a period) as the follow-up.
+
 # Lineage vs. unrelated results — get this right
+These rules apply only when `failed` is empty and `empty` is false.
 If `lineage` is TRUE, these records are the TRACED ORIGIN of one another: say so
 plainly, e.g. "this payment traces back through N credits to N sales
 transactions". Follow the `chain` order when describing it.
@@ -1559,6 +1574,19 @@ def _narrator_context(
     )
     incomplete = any((e.get("result") or {}).get("feedTruncated") for e in trace)
 
+    # Failed steps are excluded from `shown`, so without this the narrator has
+    # no idea the plan broke and will describe a dead chain as a deliberate
+    # independent fetch.
+    failed = [
+        {
+            "entity": (e.get("arguments") or {}).get("entity"),
+            "message": (e.get("result") or {}).get("message")
+            or (e.get("result") or {}).get("error"),
+        }
+        for e in trace
+        if not (e.get("result") or {}).get("ok")
+    ]
+
     return {
         "question": question,
         "payee": payee,
@@ -1569,6 +1597,8 @@ def _narrator_context(
         "lineage": lineage,
         "chain": [s["type"] for s in shown] if lineage else [],
         "incomplete": incomplete,
+        "failed": failed,
+        "empty": all(s["count"] == 0 for s in shown) if shown else True,
     }
 
 
