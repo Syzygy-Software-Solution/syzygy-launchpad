@@ -29,6 +29,7 @@ class ChatResponse(BaseModel):
     charts: list[dict[str, Any]] = Field(default_factory=list)
     model: str = ""
     tokens: int = 0
+    steps: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

@@ -6,14 +6,17 @@
 # cs_measurement (MEASUREMENTSEQ) and to cs_period (SOURCEPERIODSEQ /
 # TARGETPERIODSEQ). See cs_payment.yaml for the full card-structure explanation.
 #
-# NOTE: card only — not yet added to any agent's `entities`, so it won't be
-# queried until wired in.
+# This is the LAST hop of the payment -> sales-transaction lineage chain:
+#
+#   ... -> incentive -> cs_incentivepmtrace -> measurement -> [THIS] ->
+#   credit -> sales transaction
 # =============================================================================
 
 # ---- Identity ---------------------------------------------------------------
 entity: cs_pmcredittrace
 title: Credit Trace
 version: 1
+kind: trace
 
 # ---- Source binding ---------------------------------------------------------
 source:

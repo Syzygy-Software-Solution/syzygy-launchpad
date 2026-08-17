@@ -1,0 +1,194 @@
+# =============================================================================
+# ENTITY CARD — CS_DEPOSITINCENTIVETRACE
+# =============================================================================
+# Pipeline trace: records how an incentive contributes into a deposit. This is
+# hop 2 of the payment -> sales-transaction lineage chain:
+#
+#   payment -> deposit -> [THIS] -> incentive -> cs_incentivepmtrace ->
+#   measurement -> cs_pmcredittrace -> credit -> sales transaction
+#
+# Pure plumbing table: it carries no payee/position of its own, only the two
+# surrogate keys plus the contribution amount. `kind: trace` keeps it out of the
+# answer tables (see planner._is_fact_entity) — it is traversed, not reported.
+# See cs_payment.yaml for the full card-structure explanation.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_depositincentivetrace
+title: Deposit-Incentive Trace
+version: 1
+kind: trace
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_DEPOSITINCENTIVETRACE/CS_V_DEPOSITINCENTIVETRACE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management deposit-incentive trace records — traces how an
+  incentive contributes into a deposit, from a source compensation period to a
+  target period, with the contribution amount. This is the ONLY exact link
+  between a deposit and the incentives behind it. Use it to walk from a deposit
+  down to its incentives (and onward to measurements, credits and sales
+  transactions), or upward from an incentive to the deposit that paid it.
+grain: One row per incentive-to-deposit contribution (incentive x deposit x source period x target period).
+domains: [deposits, incentives, traceability, lineage, payment trace]
+synonyms: [deposit incentive trace, deposit trace, incentive contribution, deposit lineage]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  DEPOSITSEQ:
+    type: bigint
+    role: foreign_key
+    label: Deposit
+    description: The deposit this trace row contributes to. Joins to cs_deposit.DEPOSITSEQ.
+    synonyms: [deposit, deposit id, deposit sequence]
+    references:
+      entity: cs_deposit
+      column: DEPOSITSEQ
+    filterable:
+      - {key: depositseq, op: eq}
+      - {key: depositseq_in, op: in}
+
+  INCENTIVESEQ:
+    type: bigint
+    role: foreign_key
+    label: Incentive
+    description: The incentive whose value is being traced into the deposit.
+    synonyms: [incentive, incentive id, incentive sequence]
+    references:
+      entity: cs_incentive
+      column: INCENTIVESEQ
+    filterable:
+      - {key: incentiveseq, op: eq}
+      - {key: incentiveseq_in, op: in}
+
+  SOURCEPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Source Period
+    description: The period the incentive originates from. Joins to cs_period.PERIODSEQ.
+    synonyms: [source period, from period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: sourceperiodseq, op: eq}
+      - {key: sourceperiodseq_in, op: in}
+
+  TARGETPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Target Period
+    description: The period the incentive contributes into. Joins to cs_period.PERIODSEQ.
+    synonyms: [target period, to period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: targetperiodseq, op: eq}
+      - {key: targetperiodseq_in, op: in}
+
+  CONTRIBUTIONVALUE:
+    type: decimal
+    role: measure
+    label: Contribution Amount
+    description: >
+      How much of the incentive flowed into this deposit. No currency — plain
+      number. Use it to show how a deposit decomposes across its incentives.
+    synonyms: [contribution, contribution value, incentive contribution]
+    aggregatable: [sum, avg, min, max]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: >
+      Sequence id of the pipeline run that produced this record. Trial and post
+      runs both write trace rows — filter on one run when reconciling amounts.
+    synonyms: [pipeline run, run id]
+    filterable:
+      - {key: pipelinerunseq, op: eq}
+      - {key: pipelinerunseq_in, op: in}
+
+  UNITTYPEFORCONTRIBUTIONVALUE:
+    type: bigint
+    role: attribute
+    label: Contribution Unit Type
+    description: Unit-type sequence id for the contribution value.
+    synonyms: [unit type, contribution unit type]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+  PROCESSINGUNITSEQ:
+    type: bigint
+    role: attribute
+    label: Processing Unit
+    description: Sequence id of the processing unit that produced this record.
+    synonyms: [processing unit]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_deposit
+    via: DEPOSITSEQ
+    remoteColumn: DEPOSITSEQ
+    relationship: many-to-one
+    description: Each trace row contributes into one deposit.
+  - to: cs_incentive
+    via: INCENTIVESEQ
+    remoteColumn: INCENTIVESEQ
+    relationship: many-to-one
+    description: Each trace row traces one incentive.
+  - to: cs_period
+    via: SOURCEPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the incentive originates from.
+  - to: cs_period
+    via: TARGETPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the incentive contributes into.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [depositseq, depositseq_in, incentiveseq, incentiveseq_in, sourceperiodseq, sourceperiodseq_in, targetperiodseq, targetperiodseq_in]
+  defaultTop: 1000
+  maxTop: 1000
+  projection:
+    - DEPOSITSEQ
+    - INCENTIVESEQ
+    - SOURCEPERIODSEQ
+    - TARGETPERIODSEQ
+    - CONTRIBUTIONVALUE
+    - PIPELINERUNSEQ
+    - PROCESSINGUNITSEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalContribution:
+    type: sum
+    column: CONTRIBUTIONVALUE
+
+# ---- Value hints ------------------------------------------------------------
+valueSets: {}
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows:
+  - INCENTIVESEQ: 18577348462903304
+    DEPOSITSEQ: 18858823439732480
+    PIPELINERUNSEQ: 20547673299879136
+    SOURCEPERIODSEQ: 2533274790396032
+    TARGETPERIODSEQ: 2533274790396032
+    CONTRIBUTIONVALUE: 1388.13823
+    UNITTYPEFORCONTRIBUTIONVALUE: 1970324836974593
+    BUSINESSUNITMAP: 1
+    PROCESSINGUNITSEQ: 38280596832649220

@@ -8,6 +8,8 @@ the schema-RAG index, and the eval suite all read from here.
 Card schema (see catalog/entities/cs_payment.yaml for the fully-commented
 reference):
   entity/title/version   - identity
+  kind                   - fact (default) | dimension | trace; trace cards are
+                           traversed for their keys, never reported as answers
   source                 - destination + base-path setting + relative path
   description/grain/...   - semantics used for RAG retrieval + planning
   columns                - authoritative column list; each column declares its
@@ -93,6 +95,10 @@ class EntitySpec:
     name: str
     title: str = ""
     version: int = 1
+    # "fact" (default) | "dimension" | "trace". Trace cards are pipeline
+    # plumbing: they are traversed to carry surrogate keys from one stage to the
+    # next, but never rendered as an answer table (see planner._is_fact_entity).
+    kind: str = "fact"
     # source binding
     endpoint: str = ""                     # relativePath (kept for query_entity)
     destination: str = ""
@@ -179,6 +185,7 @@ def _load_entity(path: Path) -> EntitySpec:
         name=raw["entity"],
         title=raw.get("title", ""),
         version=int(raw.get("version", 1)),
+        kind=raw.get("kind", "fact"),
         endpoint=source.get("relativePath", ""),
         destination=source.get("destination", ""),
         base_path_setting=source.get("basePathSetting", "tcmp_base_path"),

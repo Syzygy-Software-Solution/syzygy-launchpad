@@ -254,6 +254,21 @@ html[data-sz-theme="sap_horizon_dark"] .szAiMsgAssistant code {
 .szAiCharts svg { background: #fff; border: 1px solid #eef0f4; border-radius: 6px; padding: 4px; }
 .szAiDownloads { margin-top: 0.35rem; gap: 0.4rem; }
 
+/* ---- "Steps" panel (what ran, in sequence) ---- */
+.szAiSteps { margin-bottom: 0.35rem; }
+.szAiSteps .sapMPanelHdr, .szAiSteps .sapMPanelHeader {
+  font-size: 0.72rem;
+  color: var(--sapContent_LabelColor, #64748b);
+  min-height: 1.6rem;
+}
+.szAiStepList { gap: 0.2rem; padding: 0.25rem 0 0.1rem 0; }
+.szAiStepRow { gap: 0.4rem; }
+.szAiStepIcon.sapUiIcon { font-size: 0.8rem; }
+.szAiStepOk.sapUiIcon { color: #22c55e; }
+.szAiStepErr.sapUiIcon { color: #ef4444; }
+.szAiStepLabel { font-size: 0.78rem; }
+.szAiStepDetail { font-size: 0.72rem; color: var(--sapContent_LabelColor, #94a3b8); }
+
 .szAiThinking {
   padding: 0.5rem 0.5rem;
   opacity: 0.85;

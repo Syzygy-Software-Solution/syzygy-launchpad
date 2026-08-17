@@ -50,6 +50,7 @@ class AgentRunResult:
     datasets: list[dict[str, Any]] = field(default_factory=list)
     charts: list[dict[str, Any]] = field(default_factory=list)
     tokens: int = 0
+    steps: list[dict[str, Any]] = field(default_factory=list)
 
 
 async def run_agent(

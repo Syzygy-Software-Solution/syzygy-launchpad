@@ -105,6 +105,10 @@ columns:
     cardinality: low
     filterable:
       - {key: earninggroupid, op: eq}
+      # _in variant so a payment step can feed "$sN.EARNINGGROUPID" forward when
+      # more than one payment is in scope (an `eq` filter silently keeps only
+      # the first upstream value).
+      - {key: earninggroupid_in, op: in}
 
   EARNINGCODEID:
     type: string
@@ -118,6 +122,7 @@ columns:
     cardinality: low
     filterable:
       - {key: earningcodeid, op: eq}
+      - {key: earningcodeid_in, op: in}
 
   ORIGINTYPEID:
     type: string
@@ -200,7 +205,7 @@ joins:
 
 # ---- Query contract ---------------------------------------------------------
 query:
-  requireOneOf: [depositseq, depositseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, earninggroupid, earningcodeid, name]
+  requireOneOf: [depositseq, depositseq_in, payeeseq, payeeseq_in, positionseq, positionseq_in, periodseq, periodseq_in, earninggroupid, earninggroupid_in, earningcodeid, earningcodeid_in, name]
   defaultTop: 200
   maxTop: 1000
   projection:

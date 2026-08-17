@@ -1495,6 +1495,21 @@
                 <CustomListItem class="szAiMsgItem">
                   <FlexBox direction="Row" justifyContent="{= ${ui>role} === 'user' ? 'End' : 'Start' }" wrap="NoWrap">
                     <VBox class="{= ${ui>role} === 'user' ? 'szAiMsgBubble szAiMsgUser' : (${ui>error} ? 'szAiMsgBubble szAiMsgError' : 'szAiMsgBubble szAiMsgAssistant') }">
+                      <Panel
+                        visible="{= (${ui>steps} || []).length > 0 }"
+                        expandable="true"
+                        expanded="false"
+                        backgroundDesign="Transparent"
+                        class="szAiSteps"
+                        headerText="{= 'Steps (' + (${ui>steps} || []).length + ')' }">
+                        <VBox items="{ui>steps}" class="szAiStepList">
+                          <HBox alignItems="Center" class="szAiStepRow">
+                            <core:Icon src="{= ${ui>ok} ? 'sap-icon://sys-enter-2' : 'sap-icon://error' }" class="{= ${ui>ok} ? 'szAiStepIcon szAiStepOk' : 'szAiStepIcon szAiStepErr' }"/>
+                            <Text text="{ui>label}" class="szAiStepLabel"/>
+                            <Text text="{ui>detail}" class="szAiStepDetail"/>
+                          </HBox>
+                        </VBox>
+                      </Panel>
                       <core:HTML content="{ui>contentHtml}" sanitizeContent="false"/>
                       <VBox items="{ui>charts}" class="szAiCharts">
                         <core:HTML content="{ui>svgHtml}" sanitizeContent="false"/>

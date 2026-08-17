@@ -1,0 +1,261 @@
+# =============================================================================
+# ENTITY CARD — CS_INCENTIVEPMTRACE
+# =============================================================================
+# Pipeline trace: records how a measurement contributes into an incentive
+# ("PM" = period measurement). This is hop 3 of the payment -> sales-transaction
+# lineage chain:
+#
+#   payment -> deposit -> cs_depositincentivetrace -> incentive -> [THIS] ->
+#   measurement -> cs_pmcredittrace -> credit -> sales transaction
+#
+# Besides the two keys it carries the attainment / quota context for the
+# measurement, which is the only place that data is exposed. `kind: trace` keeps
+# it out of the answer tables (see planner._is_fact_entity) — it is traversed,
+# not reported. See cs_payment.yaml for the full card-structure explanation.
+# =============================================================================
+
+# ---- Identity ---------------------------------------------------------------
+entity: cs_incentivepmtrace
+title: Incentive-Measurement Trace
+version: 1
+kind: trace
+
+# ---- Source binding ---------------------------------------------------------
+source:
+  destination: TCMP_DEST
+  basePathSetting: tcmp_base_path
+  relativePath: /CS_V_INCENTIVEPMTRACE/CS_V_INCENTIVEPMTRACE
+  odataVersion: v4
+
+# ---- Semantics --------------------------------------------------------------
+description: >
+  SAP Incentive Management incentive-measurement trace records — traces how a
+  measurement contributes into an incentive, from a source compensation period
+  to a target period, with the contribution amount and the attainment/quota
+  context. This is the ONLY exact link between an incentive and the measurements
+  behind it. Use it to walk from an incentive down to its measurements (and
+  onward to credits and sales transactions), or upward from a measurement to the
+  incentive it fed. Also answers quota/attainment questions for a measurement.
+grain: One row per measurement-to-incentive contribution (measurement x incentive x source period x target period).
+domains: [incentives, measurements, traceability, lineage, quota, attainment, payment trace]
+synonyms: [incentive measurement trace, incentive pm trace, measurement contribution, incentive lineage]
+
+# ---- Columns ----------------------------------------------------------------
+columns:
+  INCENTIVESEQ:
+    type: bigint
+    role: foreign_key
+    label: Incentive
+    description: The incentive this trace row contributes to. Joins to cs_incentive.INCENTIVESEQ.
+    synonyms: [incentive, incentive id, incentive sequence]
+    references:
+      entity: cs_incentive
+      column: INCENTIVESEQ
+    filterable:
+      - {key: incentiveseq, op: eq}
+      - {key: incentiveseq_in, op: in}
+
+  MEASUREMENTSEQ:
+    type: bigint
+    role: foreign_key
+    label: Measurement
+    description: The measurement whose value is being traced into the incentive.
+    synonyms: [measurement, measurement id, measurement sequence]
+    references:
+      entity: cs_measurement
+      column: MEASUREMENTSEQ
+    filterable:
+      - {key: measurementseq, op: eq}
+      - {key: measurementseq_in, op: in}
+
+  SOURCEPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Source Period
+    description: The period the measurement originates from. Joins to cs_period.PERIODSEQ.
+    synonyms: [source period, from period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: sourceperiodseq, op: eq}
+      - {key: sourceperiodseq_in, op: in}
+
+  TARGETPERIODSEQ:
+    type: bigint
+    role: foreign_key
+    label: Target Period
+    description: The period the measurement contributes into. Joins to cs_period.PERIODSEQ.
+    synonyms: [target period, to period]
+    references:
+      entity: cs_period
+      column: PERIODSEQ
+    filterable:
+      - {key: targetperiodseq, op: eq}
+      - {key: targetperiodseq_in, op: in}
+
+  CONTRIBUTIONVALUE:
+    type: decimal
+    role: measure
+    label: Contribution Amount
+    description: >
+      How much of the measurement flowed into this incentive. No currency —
+      plain number. Use it to show how an incentive decomposes across its
+      measurements.
+    synonyms: [contribution, contribution value, measurement contribution]
+    aggregatable: [sum, avg, min, max]
+
+  ATTAINMENTVALUE:
+    type: decimal
+    role: measure
+    label: Attainment
+    description: >
+      Attainment achieved against the quota for this contribution (often null
+      when the rule carries no quota).
+    synonyms: [attainment, attainment value, achievement]
+    aggregatable: [sum, avg, min, max]
+
+  QUOTAVALUE:
+    type: decimal
+    role: measure
+    label: Quota
+    description: The quota target for this contribution (may be null).
+    synonyms: [quota, quota value, target]
+    aggregatable: [sum, avg, min, max]
+
+  QUOTANAME:
+    type: string
+    role: attribute
+    label: Quota Name
+    description: Name of the quota applied to this contribution (may be null).
+    synonyms: [quota name]
+    filterable:
+      - {key: quotaname, op: eq}
+
+  QUOTAPERIODTYPESEQ:
+    type: bigint
+    role: attribute
+    label: Quota Period Type
+    description: >
+      Period-type sequence id the quota is defined over (may be null). Left as a
+      plain attribute rather than a foreign key so it does not create a spurious
+      lineage shortcut through cs_periodtype.
+    synonyms: [quota period type]
+
+  PIPELINERUNSEQ:
+    type: bigint
+    role: attribute
+    label: Pipeline Run
+    description: >
+      Sequence id of the pipeline run that produced this record. Trial and post
+      runs both write trace rows — filter on one run when reconciling amounts.
+    synonyms: [pipeline run, run id]
+    filterable:
+      - {key: pipelinerunseq, op: eq}
+      - {key: pipelinerunseq_in, op: in}
+
+  UNITTYPEFORCONTRIBUTIONVALUE:
+    type: bigint
+    role: attribute
+    label: Contribution Unit Type
+    description: Unit-type sequence id for the contribution value.
+    synonyms: [unit type, contribution unit type]
+
+  UNITTYPEFORATTAINMENTVALUE:
+    type: bigint
+    role: attribute
+    label: Attainment Unit Type
+    description: Unit-type sequence id for the attainment value.
+    synonyms: [attainment unit type]
+
+  UNITTYPEFORQUOTAVALUE:
+    type: bigint
+    role: attribute
+    label: Quota Unit Type
+    description: Unit-type sequence id for the quota value.
+    synonyms: [quota unit type]
+
+  BUSINESSUNITMAP:
+    type: integer
+    role: attribute
+    label: Business Unit Map
+    description: Business-unit mapping indicator for the record.
+    synonyms: [business unit, business unit map]
+
+  PROCESSINGUNITSEQ:
+    type: bigint
+    role: attribute
+    label: Processing Unit
+    description: Sequence id of the processing unit that produced this record.
+    synonyms: [processing unit]
+
+# ---- Relationships ----------------------------------------------------------
+joins:
+  - to: cs_incentive
+    via: INCENTIVESEQ
+    remoteColumn: INCENTIVESEQ
+    relationship: many-to-one
+    description: Each trace row contributes into one incentive.
+  - to: cs_measurement
+    via: MEASUREMENTSEQ
+    remoteColumn: MEASUREMENTSEQ
+    relationship: many-to-one
+    description: Each trace row traces one measurement.
+  - to: cs_period
+    via: SOURCEPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the measurement originates from.
+  - to: cs_period
+    via: TARGETPERIODSEQ
+    remoteColumn: PERIODSEQ
+    relationship: many-to-one
+    description: The period the measurement contributes into.
+
+# ---- Query contract ---------------------------------------------------------
+query:
+  requireOneOf: [incentiveseq, incentiveseq_in, measurementseq, measurementseq_in, sourceperiodseq, sourceperiodseq_in, targetperiodseq, targetperiodseq_in, quotaname]
+  defaultTop: 1000
+  maxTop: 1000
+  projection:
+    - INCENTIVESEQ
+    - MEASUREMENTSEQ
+    - SOURCEPERIODSEQ
+    - TARGETPERIODSEQ
+    - CONTRIBUTIONVALUE
+    - ATTAINMENTVALUE
+    - QUOTAVALUE
+    - QUOTANAME
+    - PIPELINERUNSEQ
+    - PROCESSINGUNITSEQ
+
+# ---- Aggregations -----------------------------------------------------------
+aggregations:
+  totalContribution:
+    type: sum
+    column: CONTRIBUTIONVALUE
+
+# ---- Value hints ------------------------------------------------------------
+valueSets:
+  QUOTANAME:
+    cardinality: low
+    updated: null
+    values: []
+
+# ---- Sample rows ------------------------------------------------------------
+sampleRows:
+  - INCENTIVESEQ: 18577348462903300
+    MEASUREMENTSEQ: 18295873486192930
+    PIPELINERUNSEQ: 20547673299879136
+    SOURCEPERIODSEQ: 2533274790396032
+    TARGETPERIODSEQ: 2533274790396032
+    CONTRIBUTIONVALUE: 75335
+    UNITTYPEFORCONTRIBUTIONVALUE: 1970324836974593
+    BUSINESSUNITMAP: 1
+    PROCESSINGUNITSEQ: 38280596832649220
+    ATTAINMENTVALUE: null
+    UNITTYPEFORATTAINMENTVALUE: null
+    QUOTAVALUE: null
+    UNITTYPEFORQUOTAVALUE: null
+    QUOTANAME: null
+    QUOTAPERIODTYPESEQ: null

@@ -27,7 +27,12 @@ AGENT_ENTITIES = [
     "cs_deposit",
     "cs_incentive",
     "cs_credit",
-    "cs_pmcredittrace",
+    # Pipeline trace tables — these are what make payment -> sales-transaction
+    # lineage exact rather than a payee/period fan-out. Each carries the two
+    # surrogate keys that bridge one calculation stage to the next.
+    "cs_depositincentivetrace",   # deposit    <-> incentive
+    "cs_incentivepmtrace",        # incentive  <-> measurement
+    "cs_pmcredittrace",           # measurement <-> credit
     "cs_salesorder",
     "cs_salestransaction",
 ]

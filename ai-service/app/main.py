@@ -84,4 +84,5 @@ async def chat(
         charts=result.charts,
         model=result.model,
         tokens=result.tokens,
+        steps=result.steps,
     )

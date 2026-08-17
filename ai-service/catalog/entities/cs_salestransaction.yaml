@@ -4,7 +4,8 @@
 # Sales transaction line items (one per order line). Child of CS_SALESORDER via
 # SALESORDERSEQ. See cs_payment.yaml for the full card-structure explanation.
 #
-# NOTE: card only — not yet added to any agent's `entities`.
+# This is the FINAL destination of the payment -> sales-transaction lineage
+# chain; cs_credit.SALESTRANSACTIONSEQ is the hop that reaches it.
 # =============================================================================
 
 # ---- Identity ---------------------------------------------------------------

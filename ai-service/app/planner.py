@@ -33,11 +33,59 @@ from .tools.query_entity import query_entity
 
 log = logging.getLogger(__name__)
 
-MAX_PLAN_STEPS = 8
+# Full payment -> sales-transaction lineage is 6 hops; add period resolution
+# (cs_periodtype + cs_period) at the front and optional detail steps for the
+# intermediate stages and a legitimate plan reaches ~12 steps.
+MAX_PLAN_STEPS = 14
 
 
 def _usage(resp: dict[str, Any]) -> int:
     return int((resp.get("usage") or {}).get("total_tokens") or 0)
+
+
+# Human-readable labels for the "Steps" panel (lookup/dimension entities).
+_STEP_LABELS = {
+    "cs_periodtype": "Identifying the period type",
+    "cs_period": "Resolving the compensation period",
+    "cs_participant": "Looking up participants",
+    "cs_position": "Looking up positions",
+    "cs_title": "Looking up position titles",
+    "cs_depositincentivetrace": "Tracing deposits to incentives",
+    "cs_incentivepmtrace": "Tracing incentives to measurements",
+    "cs_pmcredittrace": "Tracing measurements to credits",
+}
+
+
+def _build_steps(trace: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Friendly, ordered description of each executed query step."""
+    steps: list[dict[str, Any]] = []
+    for entry in trace:
+        args = entry.get("arguments") or {}
+        entity = args.get("entity") or ""
+        res = entry.get("result") or {}
+        spec = catalog().get(entity)
+        ok = bool(res.get("ok"))
+
+        if entity in _STEP_LABELS:
+            label = _STEP_LABELS[entity]
+        elif spec:
+            noun = _entity_noun(spec)
+            if res.get("groups") is not None:
+                label = f"Ranking {noun} by {_group_header(spec, res.get('groupBy'))}"
+            else:
+                label = f"Fetching {noun}"
+        else:
+            label = f"Querying {entity}"
+
+        if not ok:
+            detail = res.get("message") or res.get("error") or "failed"
+        elif res.get("groups") is not None:
+            detail = f"{len(res.get('groups') or [])} groups"
+        else:
+            detail = f"{res.get('rowsReturned', 0):,} rows"
+
+        steps.append({"label": label, "ok": ok, "detail": detail})
+    return steps
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +247,59 @@ per hop, referencing "$<id>.<COLUMN>" to carry the join key forward. Examples:
     s2 cs_position {{titleseq_in: "$s1.RULEELEMENTOWNERSEQ"}}
     s3 cs_payment {{positionseq_in: "$s2.RULEELEMENTOWNERSEQ"}}
 
+# Lineage: how a payment traces down to sales transactions
+The calculation pipeline runs in this order, and each arrow is an EXACT link via
+the entity named under it. This is the ONLY correct way to answer "what is
+behind this payment", "which sales transactions produced this payment", "why was
+this payment this amount", or the same question asked in reverse.
+
+  payment -> deposit -> incentive -> measurement -> credit -> sales transaction
+            (a)        (b)          (c)            (d)       (e)
+
+  (a) payment -> deposit: no trace table. Filter cs_deposit on ALL of
+      payeeseq_in / positionseq_in / periodseq_in / earninggroupid_in /
+      earningcodeid_in, all fed from the payment step. A payment is the sum of
+      the deposits sharing those five keys.
+  (b) deposit -> incentive:    cs_depositincentivetrace (DEPOSITSEQ, INCENTIVESEQ)
+  (c) incentive -> measurement: cs_incentivepmtrace     (INCENTIVESEQ, MEASUREMENTSEQ)
+  (d) measurement -> credit:    cs_pmcredittrace        (MEASUREMENTSEQ, CREDITSEQ)
+  (e) credit -> sales transaction: cs_credit.SALESTRANSACTIONSEQ
+
+The three trace entities are PLUMBING. Query them to carry keys forward; do not
+treat them as the answer. Traverse them in either direction — to go from a sales
+transaction back up to the payments it contributed to, walk (e) to (a) backwards.
+
+## The rule that matters
+NEVER answer a lineage question by filtering the target entity on payeeseq /
+periodseq / positionseq. That returns everything that payee did in that period —
+NOT what is behind this record — and the totals will not reconcile. If the user
+anchors on a SPECIFIC record, you MUST walk the chain hop by hop. Only use
+payee/period filters when the user genuinely asked for a period-wide listing
+("all credits in February").
+
+## Worked example — "sales transactions behind this payment" (monthly)
+    s1 cs_periodtype {{name: "month"}}
+    s2 cs_period {{periodtypeseq: "$s1.PERIODTYPESEQ", startdate_gte: "2022-02-01T00:00:00Z", startdate_lt: "2022-03-01T00:00:00Z"}}
+    s3 cs_payment {{periodseq_in: "$s2.PERIODSEQ"}} top=1
+    s4 cs_deposit {{payeeseq_in: "$s3.PAYEESEQ", positionseq_in: "$s3.POSITIONSEQ", periodseq_in: "$s3.PERIODSEQ", earninggroupid_in: "$s3.EARNINGGROUPID", earningcodeid_in: "$s3.EARNINGCODEID"}}
+    s5 cs_depositincentivetrace {{depositseq_in: "$s4.DEPOSITSEQ"}}
+    s6 cs_incentivepmtrace {{incentiveseq_in: "$s5.INCENTIVESEQ"}}
+    s7 cs_pmcredittrace {{measurementseq_in: "$s6.MEASUREMENTSEQ"}}
+    s8 cs_credit {{creditseq_in: "$s7.CREDITSEQ"}}
+    s9 cs_salestransaction {{salestransactionseq_in: "$s8.SALESTRANSACTIONSEQ"}}
+
+Insert a cs_incentive / cs_measurement step only if the user asked to SEE those
+stages; the chain does not need them to reach sales transactions.
+
+## Reverse example — "which payment did this sales transaction end up in"
+    s1 cs_salestransaction {{ponumber: "..."}}   (or productid, etc.)
+    s2 cs_credit {{salestransactionseq_in: "$s1.SALESTRANSACTIONSEQ"}}
+    s3 cs_pmcredittrace {{creditseq_in: "$s2.CREDITSEQ"}}
+    s4 cs_incentivepmtrace {{measurementseq_in: "$s3.MEASUREMENTSEQ"}}
+    s5 cs_depositincentivetrace {{incentiveseq_in: "$s4.INCENTIVESEQ"}}
+    s6 cs_deposit {{depositseq_in: "$s5.DEPOSITSEQ"}}
+    s7 cs_payment {{payeeseq_in: "$s6.PAYEESEQ", positionseq_in: "$s6.POSITIONSEQ", periodseq_in: "$s6.PERIODSEQ", earninggroupid: "$s6.EARNINGGROUPID", earningcodeid: "$s6.EARNINGCODEID"}}
+
 # Date handling (period resolution)
 When the question has a date phrase, resolve the period first:
 - Filter cs_period on STARTDATE only. Never use enddate_* — this view's ENDDATE
@@ -311,9 +412,25 @@ If `truncated` is true, add one line after the table:
 - Position-of-a-person question: state the person and their title from the
   cs_title NAME (NEVER cs_position.NAME); if multiple, use the first.
 
+# Lineage answers
+When the plan walked the trace chain (steps on cs_depositincentivetrace,
+cs_incentivepmtrace or cs_pmcredittrace are present), the user asked what is
+BEHIND a record. Then:
+- Do NOT render tables for the trace steps — they are surrogate-key plumbing.
+  Report the stage entities (payment, deposit, credit, sales transaction).
+- Say the records ARE the lineage of the anchor record, e.g. "The 34.96 payment
+  traces to N sales transactions" — never "from the same period", which implies
+  a fan-out rather than a traced link.
+- If a downstream total does not match the anchor amount, that is expected
+  (credits and transactions are gross amounts, the payment is the paid result).
+  Do not present the two as if they should reconcile, and do not silently imply
+  they do.
+
 # Hard rules
 - Fill EVERY figure from the data. NEVER output an empty "****" — if a value is
   genuinely absent, drop that clause rather than leave it blank.
+- NEVER claim records are related because they share a payee or period. If the
+  plan did not walk the trace chain, describe them as separate result sets.
 - Use ONLY values present in the input; never invent ids, amounts, or names.
 - No currency symbols. Use thousands separators for large numbers.
 - Report EACH data step; a block with rowsReturned > 0 HAS data — never call it
@@ -739,6 +856,12 @@ def _cell(text: Any) -> str:
 
 
 def _is_fact_entity(spec: Any) -> bool:
+    # Trace cards carry a CONTRIBUTIONVALUE measure but are pure lineage
+    # plumbing — rendering them would show the user a table of surrogate keys.
+    # They are traversed for their keys; the stage entities either side of them
+    # are what gets reported.
+    if getattr(spec, "kind", "fact") == "trace":
+        return False
     return any(c.role == "measure" for c in spec.columns.values())
 
 
@@ -1462,4 +1585,5 @@ async def run_planner_agent(
         datasets=datasets,
         charts=charts,
         tokens=tokens,
+        steps=_build_steps(trace),
     )

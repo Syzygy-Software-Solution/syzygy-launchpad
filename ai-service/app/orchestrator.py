@@ -32,6 +32,7 @@ class OrchestratorResult:
     charts: list[dict[str, Any]] = field(default_factory=list)
     model: str = ""
     tokens: int = 0
+    steps: list[dict[str, Any]] = field(default_factory=list)
 
 
 class Orchestrator:
@@ -94,6 +95,7 @@ class Orchestrator:
             charts=result.charts,
             model=get_settings().genai_chat_model,
             tokens=result.tokens,
+            steps=result.steps,
         )
 
 

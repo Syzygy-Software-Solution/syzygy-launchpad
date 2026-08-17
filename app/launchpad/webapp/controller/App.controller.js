@@ -315,7 +315,7 @@ sap.ui.define([
         } else if (!oBody || !oBody.reply) {
           this._appendAiMessage("assistant", "**Error:** empty response from AI service.", true);
         } else {
-          this._appendAiMessage("assistant", oBody.reply, false, oBody.datasets, oBody.charts);
+          this._appendAiMessage("assistant", oBody.reply, false, oBody.datasets, oBody.charts, oBody.steps);
           if (oBody.model) oModel.setProperty("/aiChat/model", oBody.model);
           oModel.setProperty("/aiChat/tokens", (oModel.getProperty("/aiChat/tokens") || 0) + (oBody.tokens || 0));
         }
@@ -327,18 +327,21 @@ sap.ui.define([
       }
     },
 
-    _appendAiMessage: function (sRole, sContent, bError, aDatasets, aCharts) {
+    _appendAiMessage: function (sRole, sContent, bError, aDatasets, aCharts, aSteps) {
       const aMessages = (this._uiModel.getProperty("/aiChat/messages") || []).slice();
-      aMessages.push(this._mkMessage(sRole, sContent, bError, aDatasets, aCharts));
+      aMessages.push(this._mkMessage(sRole, sContent, bError, aDatasets, aCharts, aSteps));
       this._uiModel.setProperty("/aiChat/messages", aMessages);
     },
 
-    _mkMessage: function (sRole, sContent, bError, aDatasets, aCharts) {
+    _mkMessage: function (sRole, sContent, bError, aDatasets, aCharts, aSteps) {
       return {
         role: sRole,
         content: sContent,
         error: !!bError,
         contentHtml: this._mdToSafeHtml(sContent),
+        steps: (aSteps || []).map(function (s) {
+          return { label: s.label, detail: s.detail, ok: !!s.ok };
+        }),
         datasets: (aDatasets || []).map(function (d) {
           return {
             title: d.title,
