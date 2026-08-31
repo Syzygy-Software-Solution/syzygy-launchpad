@@ -208,6 +208,87 @@ _PAGE_SIZE = 1000
 # Concurrent in-flight requests when a filter is split into batches.
 _MAX_CONCURRENCY = 5
 
+# ---------------------------------------------------------------------------
+# Int64 precision
+# ---------------------------------------------------------------------------
+# Every surrogate key in this source (PAYMENTSEQ, DEPOSITSEQ, INCENTIVESEQ,
+# CREDITSEQ, MEASUREMENTSEQ, ...) is a bigint, and many of them run past 2^53 —
+# the largest integer an IEEE-754 double holds exactly. A key that crosses ANY
+# hop parsing JSON numbers as doubles is silently rounded to the nearest
+# representable value: 26177172834150613 comes back as ...612. Ids below 2^53
+# (payee, period, position in most tenants) survive untouched, which is exactly
+# why this shows up as "only some ids are off by one".
+#
+# OData v4 has a format parameter for precisely this problem:
+# `IEEE754Compatible=true` tells the server to serialise Edm.Int64 and
+# Edm.Decimal as JSON STRINGS, which no double ever touches. We ask for it on
+# every request and convert the strings back to int/float here — driven by the
+# entity card's declared column types — so every consumer downstream sees the
+# same Python types it always has, only exact.
+_ACCEPT_PLAIN = "application/json"
+_ACCEPT_IEEE754 = "application/json;IEEE754Compatible=true"
+_MAX_EXACT_INT = 2 ** 53
+_INT_TYPES = {"bigint", "int", "integer"}
+
+# Set to False for the life of the process if the source rejects the
+# parameterised media type (HTTP 406), so we negotiate once, not per request.
+_ieee754_accept = True
+# (entity, column) pairs already reported — one log line per column, not per row.
+_precision_warned: set[tuple[str, str]] = set()
+
+
+def _accept_header() -> str:
+    return _ACCEPT_IEEE754 if _ieee754_accept else _ACCEPT_PLAIN
+
+
+def _warn_precision(entity: str, column: str) -> None:
+    if (entity, column) in _precision_warned:
+        return
+    _precision_warned.add((entity, column))
+    log.warning(
+        "query_entity[%s] ← %s arrived as a JSON number larger than 2^53 "
+        "despite Accept=%s. The source did not honour IEEE754Compatible, so "
+        "this key may already be rounded (off by 1-2) before it reached us — "
+        "that loss is not recoverable client-side and must be fixed at the "
+        "source (expose the column as Edm.Int64 / a string, not a double).",
+        entity, column, _ACCEPT_IEEE754,
+    )
+
+
+def _coerce_numeric(spec: EntitySpec, records: list[dict[str, Any]]) -> None:
+    """Undo IEEE754Compatible string encoding, in place, per column type.
+
+    Integer columns become `int` (parsed from text, so exact at any magnitude)
+    and decimal columns become `float`, which is what every caller already
+    expects. This is also the only place that can DETECT a rounding that
+    happened upstream — an integer key still arriving as a JSON number past
+    2^53 — so it says so in the log instead of rendering a wrong id silently.
+    """
+    for rec in records:
+        for name, value in rec.items():
+            col = spec.columns.get(name)
+            if col is None or value is None:
+                continue
+            ctype = (col.type or "").lower()
+            if ctype in _INT_TYPES:
+                if isinstance(value, str):
+                    try:
+                        rec[name] = int(value)
+                    except ValueError:
+                        pass  # not a number after all — leave it alone
+                elif isinstance(value, float):
+                    # Already a double upstream. Keep it rendering as digits
+                    # rather than as 2.6e+16, and flag the lost precision.
+                    rec[name] = int(value)
+                    _warn_precision(spec.name, name)
+                elif isinstance(value, int) and abs(value) > _MAX_EXACT_INT:
+                    _warn_precision(spec.name, name)
+            elif ctype == "decimal" and isinstance(value, str):
+                try:
+                    rec[name] = float(value)
+                except ValueError:
+                    pass
+
 
 def _select_columns(spec: EntitySpec) -> list[str]:
     """Columns the request must ask for: projection + anything code reads later.
@@ -358,11 +439,25 @@ async def _fetch_one(
     client: httpx.AsyncClient,
     url: str,
     headers: dict[str, str],
-    entity: str,
+    spec: EntitySpec,
 ) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
     """One GET. Returns (records, error_result); exactly one is non-None."""
+    global _ieee754_accept
+
+    entity = spec.name
     log.info("query_entity[%s] → GET %s", entity, url)
-    resp = await client.get(url, headers=headers)
+    resp = await client.get(url, headers={**headers, "Accept": _accept_header()})
+    if resp.status_code == 406 and _ieee754_accept:
+        # A few OData stacks reject the parameterised media type outright
+        # rather than ignoring the parameter. Fall back once, for the process.
+        log.warning(
+            "query_entity[%s] ← 406 for Accept=%s; retrying as plain JSON. "
+            "Int64 keys past 2^53 are then only as exact as the source makes "
+            "them.",
+            entity, _ACCEPT_IEEE754,
+        )
+        _ieee754_accept = False
+        resp = await client.get(url, headers={**headers, "Accept": _ACCEPT_PLAIN})
     content_type = resp.headers.get("content-type", "")
     log.info(
         "query_entity[%s] ← status=%s content-type=%s bytes=%d",
@@ -401,7 +496,11 @@ async def _fetch_one(
             ),
         }
 
-    return (body.get("value") or []), None
+    records = body.get("value") or []
+    # Before ANY other code sees these rows: strings back to numbers, and a
+    # loud line in the log if an id still came through a double.
+    _coerce_numeric(spec, records)
+    return records, None
 
 
 async def _fetch_batch(
@@ -428,7 +527,7 @@ async def _fetch_batch(
         # exactly fills the cap is indistinguishable from one that was cut
         # short, and every exactly-full result reports itself as truncated.
         url = _build_url(base, spec, filter_str, want + 1, orderby, select, skip)
-        page, err = await _fetch_one(client, url, headers, spec.name)
+        page, err = await _fetch_one(client, url, headers, spec)
         if err is not None:
             return None, err, False
         if len(page) <= want:
@@ -503,7 +602,9 @@ async def query_entity(
     settings = get_settings()
     dest = await destinations().get(settings.tcmp_destination)
     base = f"{dest.url}{settings.tcmp_base_path}".rstrip("/")
-    headers = {"Accept": "application/json", **dest.headers}
+    # Accept is negotiated per request in _fetch_one (IEEE754Compatible,
+    # with a one-time fallback), so it is deliberately not set here.
+    headers = dict(dest.headers)
     select = _select_columns(spec)
 
     # Budget for the encoded $filter: the URL ceiling less the fixed prefix and

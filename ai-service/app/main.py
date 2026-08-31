@@ -16,6 +16,7 @@ from .schemas import (
     ChatResponse,
     HealthResponse,
     ToolCallTrace,
+    json_safe_ints,
 )
 
 VERSION = "0.1.0"
@@ -79,7 +80,7 @@ async def chat(
     return ChatResponse(
         reply=result.reply,
         agent=result.agent,
-        tool_calls=[ToolCallTrace(**tc) for tc in result.tool_calls],
+        tool_calls=[ToolCallTrace(**json_safe_ints(tc)) for tc in result.tool_calls],
         datasets=result.datasets,
         charts=result.charts,
         model=result.model,
