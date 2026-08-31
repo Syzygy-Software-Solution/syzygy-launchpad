@@ -353,9 +353,31 @@ cs_position.NAME is an internal code (often a userid) and is NOT projected —
 never report it as the position. Any question about a person's position or title
 MUST end with a cs_title step and answer from cs_title.NAME.
 
+# Chart / visualisation requests ("plot", "chart", "graph", "visualise")
+ALWAYS call the tool for these — the chart is DRAWN FROM THE QUERY RESULT, so a
+chart request is a data request. The user usually asks right after an answer
+("plot that as a pie chart"): re-run the query behind THAT answer, reading its
+filters from the conversation above. Never answer a chart request from the
+conversation, and never draw one in text/ASCII — the chart is rendered for you.
+If the chart is "X per Y" or "number/total of X by Y", put group_by (the Y
+column) + aggregate ("count", or "sum" with aggregate_column) on the final step.
+
 # When no fetch is needed
 For greetings or questions unrelated to the data, reply in plain text and do NOT
-call the tool.
+call the tool. A chart request is NEVER in this category.
+"""
+
+
+# Sent back to the planner when it answered a chart request in prose instead of
+# calling the tool. See `run_planner_agent`.
+_CHART_REPLAN_NUDGE = """\
+That was a CHART request and you answered it without calling run_query_plan, so
+there is no result set to draw from and the user gets no chart. Call
+run_query_plan now for the data being charted: re-run the query behind the
+answer this refers to, taking its filters from the conversation above. If the
+user asked for "X per Y" or "the number/total of X by Y", add group_by (the Y
+column) and aggregate ("count", or "sum" with aggregate_column) to the final
+step. Never draw a chart in text.
 """
 
 
@@ -1327,12 +1349,29 @@ def _pick_breakdown(question: str, res: dict[str, Any]) -> tuple[str | None, dic
     return None, None
 
 
+def _chart_type_for(ctype: str, data: list[tuple[str, float]]) -> str:
+    """Downgrade a pie to a bar when the values cannot be slices of one whole.
+
+    A pie divides a total between its parts. Amounts that mix signs (a refund
+    against a payout) have no meaningful total to divide — slices would come out
+    negative or absurd — so those are drawn as bars instead. All-negative
+    amounts are fine: every share of a negative total is still positive.
+    """
+    if ctype == "pie" and any(v < 0 for _, v in data) and any(v > 0 for _, v in data):
+        return "bar"
+    return ctype
+
+
 def _build_charts(question: str, trace: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Backend-drawn SVG charts (deterministic) — only when a chart is asked for."""
     if not _CHART_RE.search(question):
         return []
     q = question.lower()
     ctype = "pie" if "pie" in q else ("line" if "line" in q else "bar")
+    # "how many / count / number of X by Y" asks to chart COUNTS. Charting the
+    # amounts instead answers a question the user did not ask — and for records
+    # whose values are all zero or negative (deductions), it draws nothing.
+    want_count = bool(_COUNT_RE.search(question))
     charts: list[dict[str, str]] = []
     # Chart the ranked groups when the question was analytical; otherwise chart
     # only the PRIMARY fact step. A lineage chain has several fact steps and
@@ -1351,7 +1390,7 @@ def _build_charts(question: str, trace: list[dict[str, Any]]) -> list[dict[str, 
         # Grouped result -> chart the ranked groups directly.
         if res.get("groups"):
             gh = _group_header(spec, res.get("groupBy"))
-            use_amount = res.get("aggregate") == "sum"
+            use_amount = res.get("aggregate") == "sum" and not want_count
             data = [
                 (str(_group_label(entry, g["key"], {})), float(g["amount"] if use_amount else g["count"]))
                 for g in res["groups"][:12]
@@ -1359,20 +1398,28 @@ def _build_charts(question: str, trace: list[dict[str, Any]]) -> list[dict[str, 
             data = [d for d in data if d[1] != 0] or data
             if data:
                 title = f"{_entity_noun(spec).capitalize()} by {gh}"
-                charts.append({"title": title, "svg": _svg_chart(ctype, title, data)})
+                charts.append({
+                    "title": title,
+                    "svg": _svg_chart(_chart_type_for(ctype, data), title, data),
+                })
             continue
 
         label, agg = _pick_breakdown(question, res)
         if not agg:
             continue
-        data = [(str(k), float(v.get("amount") or 0)) for k, v in agg.items()]
+        metric = "count" if want_count else "amount"
+        data = [(str(k), float(v.get(metric) or 0)) for k, v in agg.items()]
         data = [d for d in data if d[1] != 0] or data
         data.sort(key=lambda x: -x[1])
         data = data[:12]
         if not data:
             continue
-        title = f"{_entity_noun(spec).capitalize()} by {label}"
-        charts.append({"title": title, "svg": _svg_chart(ctype, title, data)})
+        noun = _entity_noun(spec).capitalize()
+        title = f"Number of {noun.lower()} by {label}" if want_count else f"{noun} by {label}"
+        charts.append({
+            "title": title,
+            "svg": _svg_chart(_chart_type_for(ctype, data), title, data),
+        })
     return charts
 
 
@@ -1634,6 +1681,10 @@ async def run_planner_agent(
     agent: Agent, user_messages: list[dict[str, Any]]
 ) -> AgentRunResult:
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    last_user = next(
+        (m["content"] for m in reversed(user_messages) if m.get("role") == "user"),
+        "",
+    )
 
     # --- 1. PLAN ---
     plan_messages: list[dict[str, Any]] = [
@@ -1652,6 +1703,32 @@ async def run_planner_agent(
     msg = choice.get("message") or {}
     tool_calls = msg.get("tool_calls") or []
     tokens = _usage(plan_resp)
+
+    # A chart request that produced no plan has nothing to draw from: charts are
+    # built from a result set, never from the conversation. This is the common
+    # case where the user accepts the narrator's own offer to visualise the
+    # answer above — the data is already in the transcript, so the planner is
+    # tempted to reply in prose (typically an ASCII pie) and the request dies
+    # here, before _build_charts is ever reached. Ask again with the tool
+    # forced. Only when there IS a previous answer to chart: a cold "draw me a
+    # chart" has no data behind it, and a clarifying reply beats a guessed plan.
+    if (
+        not tool_calls
+        and _CHART_RE.search(last_user)
+        and any(m.get("role") == "assistant" for m in user_messages)
+    ):
+        log.info("planner: chart request answered without a plan — forcing a re-plan")
+        plan_resp = await chat_completion(
+            messages=[*plan_messages, {"role": "system", "content": _CHART_REPLAN_NUDGE}],
+            tools=[RUN_PLAN_TOOL_SPEC],
+            tool_choice={"type": "function", "function": {"name": "run_query_plan"}},
+            temperature=agent.temperature,
+            max_tokens=1024,
+        )
+        choice = (plan_resp.get("choices") or [{}])[0]
+        msg = choice.get("message") or {}
+        tool_calls = msg.get("tool_calls") or []
+        tokens += _usage(plan_resp)
 
     # No tool call => the planner answered directly (clarification / chat).
     if not tool_calls:
@@ -1684,11 +1761,6 @@ async def run_planner_agent(
     # --- 2b. ENRICH (deterministic FK -> label, not the LLM) ---
     enrichment = await _auto_enrich(trace)
     period_names = _period_name_index(trace)
-
-    last_user = next(
-        (m["content"] for m in reversed(user_messages) if m.get("role") == "user"),
-        "",
-    )
 
     # --- 3. RENDER ---
     # Deterministic table/summary for fact-entity results; the LLM only handles
